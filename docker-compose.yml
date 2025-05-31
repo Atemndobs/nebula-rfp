@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: nebula-rfp
+    restart: unless-stopped
+    image: atemndobs/nebula-rfp-amd64:v0.1
+    ports:
+      - "4321:80"  # Map host port 4321 to container port 80
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ./public:/usr/share/nginx/html/public
+    networks:
+      - app-network
+    # Environment variables should be passed through the environment section above
+    # or through a Docker secret/ConfigMap in production
+
+networks:
+  app-network:
+    driver: bridge

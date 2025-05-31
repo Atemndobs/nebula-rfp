@@ -1,0 +1,6 @@
+{
+  "name": "RFP Discovery & Evaluation Tool -  V3",
+  "description": "A React application to find, display, and evaluate RFPs based on specific criteria, utilizing AI for text analysis.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
