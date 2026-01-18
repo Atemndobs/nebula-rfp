@@ -21,11 +21,12 @@ import SelectionControls from './components/SelectionControls';
 import { exportRfpsToCsv } from './services/csvExportService';
 import { ProviderLogo } from './components/AiProviderLogos';
 import { AuthButtons } from './components/AuthButtons';
+import LandingPage from './components/LandingPage';
 
 type Theme = 'light' | 'dark';
 
 const escapeRegExp = (string: string): string => {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 const highlightKeywords = (text: string | undefined | null, keywords: string[]): string => {
@@ -42,7 +43,7 @@ const deepCloneCriteriaConfig = (config: Record<EvaluationCriterionKey, NebulaLo
       const criterionKey = key as EvaluationCriterionKey;
       const originalCriterion = config[criterionKey];
       newConfig[criterionKey] = {
-        ...originalCriterion, 
+        ...originalCriterion,
         keywords: originalCriterion.keywords ? originalCriterion.keywords.map(kw => ({ ...kw })) : undefined,
         preferredCategories: originalCriterion.preferredCategories ? originalCriterion.preferredCategories.map(cat => ({ ...cat })) : undefined,
       };
@@ -97,23 +98,23 @@ const formatTimestampToReadable = (timestamp: number | null, type: 'full' | 'rel
 };
 
 const getDefaultAiSettings = (): AiSettings => {
-    const defaultConfigs: Partial<Record<AiProvider, ProviderConfig>> = {};
-    (Object.keys(AiProvider) as Array<keyof typeof AiProvider>).forEach(key => {
-        const providerKey = AiProvider[key];
-        defaultConfigs[providerKey] = {
-            apiKey: '',
-            model: AVAILABLE_AI_PROVIDERS_CONFIG[providerKey]?.defaultModel || '',
-            baseUrl: providerKey === AiProvider.OLLAMA ? 'http://localhost:11434' : (providerKey === AiProvider.LM_STUDIO ? 'http://localhost:1234/v1' : undefined),
-        };
-    });
-
-    return {
-        selectedProvider: AiProvider.GEMINI,
-        providerConfigs: defaultConfigs,
-        corePromptTemplate: DEFAULT_AI_CORE_PROMPT_TEMPLATE,
-        systemInstructions: { ...DEFAULT_SYSTEM_INSTRUCTIONS },
-        useAiForEvaluation: false, 
+  const defaultConfigs: Partial<Record<AiProvider, ProviderConfig>> = {};
+  (Object.keys(AiProvider) as Array<keyof typeof AiProvider>).forEach(key => {
+    const providerKey = AiProvider[key];
+    defaultConfigs[providerKey] = {
+      apiKey: '',
+      model: AVAILABLE_AI_PROVIDERS_CONFIG[providerKey]?.defaultModel || '',
+      baseUrl: providerKey === AiProvider.OLLAMA ? 'http://localhost:11434' : (providerKey === AiProvider.LM_STUDIO ? 'http://localhost:1234/v1' : undefined),
     };
+  });
+
+  return {
+    selectedProvider: AiProvider.GEMINI,
+    providerConfigs: defaultConfigs,
+    corePromptTemplate: DEFAULT_AI_CORE_PROMPT_TEMPLATE,
+    systemInstructions: { ...DEFAULT_SYSTEM_INSTRUCTIONS },
+    useAiForEvaluation: false,
+  };
 };
 
 // Recommendation Icons
@@ -150,13 +151,13 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
     processed = processed.replace(/__(.*?)__/g, '<strong>$1</strong>');
     return processed;
   };
-  
+
   const flushList = () => {
     if (listItems.length > 0 && currentListType) {
       elements.push(
-        currentListType === 'ul' ? 
-        <ul key={`list-${elements.length}`} className="list-disc pl-6 my-2 space-y-1 text-sm">{listItems}</ul> :
-        <ol key={`list-${elements.length}`} className="list-decimal pl-6 my-2 space-y-1 text-sm">{listItems}</ol>
+        currentListType === 'ul' ?
+          <ul key={`list-${elements.length}`} className="list-disc pl-6 my-2 space-y-1 text-sm">{listItems}</ul> :
+          <ol key={`list-${elements.length}`} className="list-decimal pl-6 my-2 space-y-1 text-sm">{listItems}</ol>
       );
       listItems = [];
     }
@@ -164,7 +165,7 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
   };
 
   lines.forEach((line, index) => {
-    let originalLine = line.trim(); 
+    let originalLine = line.trim();
 
     // Handle "Recommendation: ..." lines with special styling
     if (originalLine.toLowerCase().startsWith('recommendation:')) {
@@ -199,11 +200,11 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
       elements.push(<p key={index} className="text-sm mt-1" dangerouslySetInnerHTML={{ __html: processInlineFormatting(originalLine) }} />);
       return;
     }
-    
+
     if (originalLine.match(/^\s*\*\*(.+?):\*\*\s*$/) || originalLine.match(/^\s*\*\*(.+?)\*\*\s*$/)) {
-        flushList();
-        elements.push(<h4 key={index} className="text-md font-semibold mt-3 mb-1.5 text-geist-foreground dark:text-dark-geist-foreground" dangerouslySetInnerHTML={{ __html: processInlineFormatting(originalLine.replace(/\*\*/g, '')) }} />);
-        return;
+      flushList();
+      elements.push(<h4 key={index} className="text-md font-semibold mt-3 mb-1.5 text-geist-foreground dark:text-dark-geist-foreground" dangerouslySetInnerHTML={{ __html: processInlineFormatting(originalLine.replace(/\*\*/g, '')) }} />);
+      return;
     }
     if (originalLine.startsWith('### ')) {
       flushList();
@@ -215,7 +216,7 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
       elements.push(<h4 key={index} className="text-md font-semibold mt-3 mb-1.5 text-geist-foreground dark:text-dark-geist-foreground" dangerouslySetInnerHTML={{ __html: processInlineFormatting(originalLine.substring(3)) }} />);
       return;
     }
-    if (originalLine.startsWith('# ')) { 
+    if (originalLine.startsWith('# ')) {
       flushList();
       elements.push(<h3 key={index} className="text-lg font-semibold mt-3.5 mb-2 text-geist-foreground dark:text-dark-geist-foreground" dangerouslySetInnerHTML={{ __html: processInlineFormatting(originalLine.substring(2)) }} />);
       return;
@@ -240,14 +241,14 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
       listItems.push(<li key={`${index}-li`} dangerouslySetInnerHTML={{ __html: processInlineFormatting(olMatch[2]) }} />);
       return;
     }
-    
+
     flushList();
     if (originalLine !== '') {
       elements.push(<p key={index} className="text-sm mb-1.5" dangerouslySetInnerHTML={{ __html: processInlineFormatting(originalLine) }} />);
     }
   });
 
-  flushList(); 
+  flushList();
 
   return <div className="space-y-1">{elements}</div>;
 };
@@ -255,12 +256,12 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
 
 const App: React.FC = () => {
   const [allRfps, setAllRfps] = useState<RFPWithEvaluation[]>([]);
-  const [rawApiData, setRawApiData] = useState<ApiRfp[]>([]); 
+  const [rawApiData, setRawApiData] = useState<ApiRfp[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null); 
-  const [isGeminiConfiguredViaEnv, setIsGeminiConfiguredViaEnv] = useState<boolean>(false); 
+  const [error, setError] = useState<string | null>(null);
+  const [isGeminiConfiguredViaEnv, setIsGeminiConfiguredViaEnv] = useState<boolean>(false);
   const [theme, setTheme] = useState<Theme>(() => loadFromLocalStorage<Theme>('theme', 'light'));
-  const [currentView, setCurrentView] = useState<AppView>('home'); 
+  const [currentView, setCurrentView] = useState<AppView>('home');
   const [selectedRfpIds, setSelectedRfpIds] = useState<Set<string>>(new Set());
   const [lastSuccessfulFetchTime, setLastSuccessfulFetchTime] = useState<number | null>(
     () => loadFromLocalStorage<number | null>(LAST_SUCCESSFUL_RFP_FETCH_TIMESTAMP_KEY, null)
@@ -268,16 +269,16 @@ const App: React.FC = () => {
   const [nextScheduledRefreshTime, setNextScheduledRefreshTime] = useState<number | null>(null);
   const [autoRefreshIntervalHours, setAutoRefreshIntervalHours] = useState<number>(
     () => {
-        const storedInterval = loadFromLocalStorage<number | null>(AUTO_REFRESH_INTERVAL_KEY, null);
-        if (storedInterval !== null && storedInterval >= MIN_AUTO_REFRESH_INTERVAL_HOURS) {
-            return storedInterval;
-        }
-        return DEFAULT_AUTO_REFRESH_INTERVAL_HOURS;
+      const storedInterval = loadFromLocalStorage<number | null>(AUTO_REFRESH_INTERVAL_KEY, null);
+      if (storedInterval !== null && storedInterval >= MIN_AUTO_REFRESH_INTERVAL_HOURS) {
+        return storedInterval;
+      }
+      return DEFAULT_AUTO_REFRESH_INTERVAL_HOURS;
     }
   );
-  
+
   const [currentRfpSourceCategory, setCurrentRfpSourceCategory] = useState<RfpSourceCategory>('web');
-  
+
 
   const [apiFetchFailedWarning, setApiFetchFailedWarning] = useState<string | null>(null);
 
@@ -389,14 +390,14 @@ const App: React.FC = () => {
     const loadedSettings = loadFromLocalStorage<AiSettings>('aiSettings', getDefaultAiSettings());
     // Ensure loaded settings have all provider keys from AVAILABLE_AI_PROVIDERS_CONFIG
     const completeProviderConfigs = { ...getDefaultAiSettings().providerConfigs, ...loadedSettings.providerConfigs };
-    
+
     return {
       ...loadedSettings,
       providerConfigs: completeProviderConfigs,
       useAiForEvaluation: false, // AI is OFF by default on app start
     };
   });
-  
+
   // Initialize currentRfpLimit based on the initial AI state (which is OFF)
   const [currentRfpLimit, setCurrentRfpLimit] = useState<number>(aiSettings.useAiForEvaluation ? 1 : 10);
 
@@ -409,7 +410,7 @@ const App: React.FC = () => {
       if (storedConfigString) {
         try {
           const storedSerializableParts = JSON.parse(storedConfigString) as Record<EvaluationCriterionKey, Partial<Pick<NebulaLogixCriterion, 'isMasterEnabled' | 'keywords' | 'preferredCategories' | 'geminiSystemInstruction'>>>;
-          
+
           for (const key in baseConfigWithEvaluators) {
             const criterionKey = key as EvaluationCriterionKey;
             const storedCriterion = storedSerializableParts[criterionKey];
@@ -418,14 +419,14 @@ const App: React.FC = () => {
               if (typeof storedCriterion.isMasterEnabled === 'boolean') {
                 baseConfigWithEvaluators[criterionKey].isMasterEnabled = storedCriterion.isMasterEnabled;
               }
-              
+
               if (storedCriterion.keywords && baseConfigWithEvaluators[criterionKey].keywords) {
                 baseConfigWithEvaluators[criterionKey].keywords = baseConfigWithEvaluators[criterionKey].keywords!.map(baseKw => {
                   const storedKw = storedCriterion.keywords!.find(skw => skw.value === baseKw.value);
                   return storedKw ? { ...baseKw, enabled: storedKw.enabled } : baseKw;
                 });
               }
-              
+
               if (storedCriterion.preferredCategories && baseConfigWithEvaluators[criterionKey].preferredCategories) {
                 baseConfigWithEvaluators[criterionKey].preferredCategories = baseConfigWithEvaluators[criterionKey].preferredCategories!.map(baseCat => {
                   const storedCat = storedCriterion.preferredCategories!.find(scat => scat.value === baseCat.value);
@@ -443,7 +444,7 @@ const App: React.FC = () => {
       return baseConfigWithEvaluators;
     }
   );
-  
+
   const [isImprovingPrompt, setIsImprovingPrompt] = useState<boolean>(false);
   const refreshTimeoutRef = useRef<number | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
@@ -470,13 +471,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const serializableConfig: Record<string, Partial<Pick<NebulaLogixCriterion, 'isMasterEnabled' | 'keywords' | 'preferredCategories'>>> = {};
     for (const key in currentCriteriaConfig) {
-        const criterionKey = key as EvaluationCriterionKey;
-        const criterion = currentCriteriaConfig[criterionKey];
-        serializableConfig[criterionKey] = {
-            isMasterEnabled: criterion.isMasterEnabled,
-            keywords: criterion.keywords?.map(kw => ({ value: kw.value, enabled: kw.enabled, description: kw.description })),
-            preferredCategories: criterion.preferredCategories?.map(cat => ({ value: cat.value, enabled: cat.enabled, description: cat.description })),
-        };
+      const criterionKey = key as EvaluationCriterionKey;
+      const criterion = currentCriteriaConfig[criterionKey];
+      serializableConfig[criterionKey] = {
+        isMasterEnabled: criterion.isMasterEnabled,
+        keywords: criterion.keywords?.map(kw => ({ value: kw.value, enabled: kw.enabled, description: kw.description })),
+        preferredCategories: criterion.preferredCategories?.map(cat => ({ value: cat.value, enabled: cat.enabled, description: cat.description })),
+      };
     }
     saveToLocalStorage('criteriaConfig', serializableConfig);
   }, [currentCriteriaConfig]);
@@ -511,28 +512,28 @@ const App: React.FC = () => {
       setCurrentRfpLimit(cappedLimit);
     }
   };
-  
+
   const handleToggleMasterCriterion = (criterionKey: EvaluationCriterionKey, isEnabled: boolean) => {
     setCurrentCriteriaConfig(prevConfig => {
-      const newConfig = deepCloneCriteriaConfig(prevConfig); 
+      const newConfig = deepCloneCriteriaConfig(prevConfig);
       const criterionToUpdate = newConfig[criterionKey];
-      
+
       criterionToUpdate.isMasterEnabled = isEnabled;
-      
-       if (criterionToUpdate.keywords) {
-         criterionToUpdate.keywords = criterionToUpdate.keywords.map(kw => ({ ...kw, enabled: isEnabled }));
-       }
-       if (criterionToUpdate.preferredCategories) {
-         criterionToUpdate.preferredCategories = criterionToUpdate.preferredCategories.map(cat => ({ ...cat, enabled: isEnabled }));
-       }
-      
+
+      if (criterionToUpdate.keywords) {
+        criterionToUpdate.keywords = criterionToUpdate.keywords.map(kw => ({ ...kw, enabled: isEnabled }));
+      }
+      if (criterionToUpdate.preferredCategories) {
+        criterionToUpdate.preferredCategories = criterionToUpdate.preferredCategories.map(cat => ({ ...cat, enabled: isEnabled }));
+      }
+
       return newConfig;
     });
   };
 
   const handleToggleCriterionItem = (criterionKey: EvaluationCriterionKey, itemValue: string, isEnabled: boolean) => {
     setCurrentCriteriaConfig(prevConfig => {
-      const newConfig = deepCloneCriteriaConfig(prevConfig); 
+      const newConfig = deepCloneCriteriaConfig(prevConfig);
       const criterionToUpdate = newConfig[criterionKey];
 
       let itemArray: CriterionItem[] | undefined = undefined;
@@ -542,10 +543,10 @@ const App: React.FC = () => {
       if (itemArray) {
         const itemIndex = itemArray.findIndex(item => item.value === itemValue);
         if (itemIndex > -1) {
-          const updatedItems = itemArray.map((item, index) => 
+          const updatedItems = itemArray.map((item, index) =>
             index === itemIndex ? { ...item, enabled: isEnabled } : item
           );
-          
+
           if (criterionToUpdate.keywords) criterionToUpdate.keywords = updatedItems;
           else if (criterionToUpdate.preferredCategories) criterionToUpdate.preferredCategories = updatedItems;
 
@@ -557,13 +558,13 @@ const App: React.FC = () => {
       return newConfig;
     });
   };
-  
+
   const handleUpdateAiSettings = useCallback((newSettings: Partial<AiSettings> | ((prev: AiSettings) => AiSettings)) => {
-      if (typeof newSettings === 'function') {
-          setAiSettings(prev => newSettings(prev));
-      } else {
-          setAiSettings(prev => ({ ...prev, ...newSettings }));
-      }
+    if (typeof newSettings === 'function') {
+      setAiSettings(prev => newSettings(prev));
+    } else {
+      setAiSettings(prev => ({ ...prev, ...newSettings }));
+    }
   }, []);
 
 
@@ -573,9 +574,9 @@ const App: React.FC = () => {
     const providerConfig = aiSettings.providerConfigs[selectedProvider];
 
     if (selectedProvider === AiProvider.GEMINI) {
-        currentProviderIsConfigured = isGeminiConfiguredViaEnv;
+      currentProviderIsConfigured = isGeminiConfiguredViaEnv;
     } else if (providerConfig) {
-        currentProviderIsConfigured = !!(providerConfig.apiKey || providerConfig.baseUrl);
+      currentProviderIsConfigured = !!(providerConfig.apiKey || providerConfig.baseUrl);
     }
 
     if (!currentProviderIsConfigured) {
@@ -583,14 +584,14 @@ const App: React.FC = () => {
       return;
     }
     if (selectedProvider !== AiProvider.GEMINI) {
-        alert(`Auto-improve prompt feature is currently only implemented for Gemini. Selected: ${selectedProvider}`);
-        return;
+      alert(`Auto-improve prompt feature is currently only implemented for Gemini. Selected: ${selectedProvider}`);
+      return;
     }
 
     setIsImprovingPrompt(true);
     try {
       const metaPrompt = META_PROMPT_FOR_AI_CORE_PROMPT_IMPROVEMENT.replace("{{CURRENT_USER_PROMPT}}", aiSettings.corePromptTemplate);
-      const result = await generateTextWithGemini(metaPrompt); 
+      const result = await generateTextWithGemini(metaPrompt);
       if (result.text) {
         handleUpdateAiSettings({ corePromptTemplate: result.text });
         alert("Core prompt updated with Gemini's suggestion!");
@@ -608,9 +609,9 @@ const App: React.FC = () => {
   };
 
   const handleUpdateAutoRefreshInterval = (hours: number) => {
-      const newInterval = Math.max(MIN_AUTO_REFRESH_INTERVAL_HOURS, hours);
-      setAutoRefreshIntervalHours(newInterval);
-      saveToLocalStorage(AUTO_REFRESH_INTERVAL_KEY, newInterval);
+    const newInterval = Math.max(MIN_AUTO_REFRESH_INTERVAL_HOURS, hours);
+    setAutoRefreshIntervalHours(newInterval);
+    saveToLocalStorage(AUTO_REFRESH_INTERVAL_KEY, newInterval);
   };
 
 
@@ -618,12 +619,12 @@ const App: React.FC = () => {
     return apiRfps.map(apiRfp => ({
       id: apiRfp.id,
       title: apiRfp.title,
-      summary: apiRfp.description, 
-      budget: null, 
+      summary: apiRfp.description,
+      budget: null,
       deadline: parseDeadlineFromTitleString(apiRfp.title),
       url: apiRfp.url,
       source: dataSource === 'mock' ? `Mock Data (${currentRfpSourceCategory})` : `${new URL(apiRfp.url).hostname} (API - ${currentRfpSourceCategory})`,
-      rawData: apiRfp.description, 
+      rawData: apiRfp.description,
       location: apiRfp.location,
       category: apiRfp.category,
       apiPostedDate: apiRfp.posted_date,
@@ -632,47 +633,47 @@ const App: React.FC = () => {
   };
 
   const loadAndEvaluateRfps = useCallback(async (isAutoRefresh = false) => {
-    if (!isAutoRefresh) setIsLoading(true); 
-    setError(null); 
+    if (!isAutoRefresh) setIsLoading(true);
+    setError(null);
     setApiFetchFailedWarning(null);
 
     try {
       console.log(`Fetching RFPs. Source: ${currentRfpSourceCategory}, Limit: ${currentRfpLimit}, AI: ${aiSettings.useAiForEvaluation}, AutoRefresh: ${isAutoRefresh}`);
-      const fetchResponse: FetchRfpsResponse = await fetchRfps(currentRfpSourceCategory, currentRfpLimit); 
-      
+      const fetchResponse: FetchRfpsResponse = await fetchRfps(currentRfpSourceCategory, currentRfpLimit);
+
       if (fetchResponse.warningMessage) {
         setApiFetchFailedWarning(fetchResponse.warningMessage);
       }
-      
-      setRawApiData(fetchResponse.data); 
+
+      setRawApiData(fetchResponse.data);
 
       const transformedRfps = transformApiRfpsToRfps(fetchResponse.data, fetchResponse.source);
       const evaluatedRfps = await performBatchEvaluation(transformedRfps, currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv);
       setAllRfps(evaluatedRfps);
-      if (!isAutoRefresh) setSelectedRfpIds(new Set()); 
-      
+      if (!isAutoRefresh) setSelectedRfpIds(new Set());
+
       const now = Date.now();
       saveToLocalStorage(LAST_SUCCESSFUL_RFP_FETCH_TIMESTAMP_KEY, now);
       setLastSuccessfulFetchTime(now);
 
-    } catch (err) { 
+    } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
       setApiFetchFailedWarning(`Critical error processing RFPs: ${errorMessage}. Displaying previous or mock data if available.`);
     } finally {
       if (!isAutoRefresh) setIsLoading(false);
     }
-  }, [currentRfpSourceCategory, currentRfpLimit, currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv]); 
+  }, [currentRfpSourceCategory, currentRfpLimit, currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv]);
 
   const isCurrentAiProviderConfigured = useMemo(() => {
     const provider = aiSettings.selectedProvider;
     const config = aiSettings.providerConfigs[provider];
     if (provider === AiProvider.GEMINI) {
-        return isGeminiConfiguredViaEnv;
+      return isGeminiConfiguredViaEnv;
     }
     if (provider === AiProvider.OLLAMA || provider === AiProvider.LM_STUDIO) {
-        // Also check if a model is selected/entered, especially for LM Studio and potentially Ollama
-        return !!config?.baseUrl && !!config?.model;
+      // Also check if a model is selected/entered, especially for LM Studio and potentially Ollama
+      return !!config?.baseUrl && !!config?.model;
     }
     // For other API key based providers, also ensure a model is selected/available
     return !!config?.apiKey && !!config?.model;
@@ -680,119 +681,119 @@ const App: React.FC = () => {
 
   const handleEvaluateSingleRfpWithAi = useCallback(async (rfpToEvaluate: RFPWithEvaluation, useDetailData: boolean = false) => {
     if (!isCurrentAiProviderConfigured) {
-        alert(`${aiSettings.selectedProvider} AI is not configured. Cannot perform AI evaluation.`);
-        return;
+      alert(`${aiSettings.selectedProvider} AI is not configured. Cannot perform AI evaluation.`);
+      return;
     }
 
-    setAllRfps(prevRfps => prevRfps.map(r => 
-        r.id === rfpToEvaluate.id ? { ...r, isEvaluating: true } : r
+    setAllRfps(prevRfps => prevRfps.map(r =>
+      r.id === rfpToEvaluate.id ? { ...r, isEvaluating: true } : r
     ));
     if (modalRfpSummary?.id === rfpToEvaluate.id) {
-        setModalRfpSummary(prev => prev ? {...prev, isEvaluating: true} : null);
+      setModalRfpSummary(prev => prev ? { ...prev, isEvaluating: true } : null);
     }
 
     let textForEvaluation = `${rfpToEvaluate.title} ${rfpToEvaluate.summary}`;
     if (useDetailData && modalRfpDetailData && modalRfpDetailData.url === rfpToEvaluate.url) {
-        let detailedSummary = modalRfpDetailData.title || "";
-        if (modalRfpDetailData.description) detailedSummary += ` ${modalRfpDetailData.description}`;
-        if (modalRfpDetailData.scope_of_service) detailedSummary += ` ${modalRfpDetailData.scope_of_service}`;
-        textForEvaluation = detailedSummary.trim() || textForEvaluation; 
-        console.log(`Using detailed text for AI evaluation of ${rfpToEvaluate.id}`);
+      let detailedSummary = modalRfpDetailData.title || "";
+      if (modalRfpDetailData.description) detailedSummary += ` ${modalRfpDetailData.description}`;
+      if (modalRfpDetailData.scope_of_service) detailedSummary += ` ${modalRfpDetailData.scope_of_service}`;
+      textForEvaluation = detailedSummary.trim() || textForEvaluation;
+      console.log(`Using detailed text for AI evaluation of ${rfpToEvaluate.id}`);
     }
 
-    const rfpForEval: RFP = { 
-        ...rfpToEvaluate, 
-        summary: textForEvaluation 
+    const rfpForEval: RFP = {
+      ...rfpToEvaluate,
+      summary: textForEvaluation
     };
 
     try {
-        const tempAiSettingsForSingleEval: AiSettings = {
-            ...aiSettings,
-            useAiForEvaluation: true 
-        };
+      const tempAiSettingsForSingleEval: AiSettings = {
+        ...aiSettings,
+        useAiForEvaluation: true
+      };
 
-        const newEvaluation = await evaluateRfp(
-            rfpForEval, 
-            currentCriteriaConfig, 
-            tempAiSettingsForSingleEval, 
-            isGeminiConfiguredViaEnv 
-        );
+      const newEvaluation = await evaluateRfp(
+        rfpForEval,
+        currentCriteriaConfig,
+        tempAiSettingsForSingleEval,
+        isGeminiConfiguredViaEnv
+      );
 
-        setAllRfps(prevRfps => prevRfps.map(r => 
-            r.id === rfpToEvaluate.id ? { ...r, evaluation: newEvaluation, isEvaluating: false } : r
-        ));
-        if (modalRfpSummary?.id === rfpToEvaluate.id) {
-            setModalRfpSummary(prev => prev ? {...prev, evaluation: newEvaluation, isEvaluating: false} : null);
-             // If the modal is open for this RFP, also re-fetch fit analysis
-            if (modalRfpDetailData && modalRfpDetailData.id === rfpToEvaluate.id) {
-                setModalFitAnalysisLoading(true);
-                generateFitAnalysis(modalRfpDetailData, currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv, newEvaluation)
-                    .then(fitAnalysisResult => {
-                        setModalRfpDetailData(prev => prev ? {...prev, fitAnalysis: fitAnalysisResult} : null);
-                    })
-                    .catch(err => {
-                        console.error("Error generating fit analysis after re-evaluation:", err);
-                        setModalRfpDetailData(prev => prev ? {...prev, fitAnalysis: { analysisError: "Failed to update fit analysis."}} : null);
-                    })
-                    .finally(() => setModalFitAnalysisLoading(false));
-            }
+      setAllRfps(prevRfps => prevRfps.map(r =>
+        r.id === rfpToEvaluate.id ? { ...r, evaluation: newEvaluation, isEvaluating: false } : r
+      ));
+      if (modalRfpSummary?.id === rfpToEvaluate.id) {
+        setModalRfpSummary(prev => prev ? { ...prev, evaluation: newEvaluation, isEvaluating: false } : null);
+        // If the modal is open for this RFP, also re-fetch fit analysis
+        if (modalRfpDetailData && modalRfpDetailData.id === rfpToEvaluate.id) {
+          setModalFitAnalysisLoading(true);
+          generateFitAnalysis(modalRfpDetailData, currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv, newEvaluation)
+            .then(fitAnalysisResult => {
+              setModalRfpDetailData(prev => prev ? { ...prev, fitAnalysis: fitAnalysisResult } : null);
+            })
+            .catch(err => {
+              console.error("Error generating fit analysis after re-evaluation:", err);
+              setModalRfpDetailData(prev => prev ? { ...prev, fitAnalysis: { analysisError: "Failed to update fit analysis." } } : null);
+            })
+            .finally(() => setModalFitAnalysisLoading(false));
         }
+      }
     } catch (error) {
-        console.error(`Error evaluating single RFP ${rfpToEvaluate.id} with AI:`, error);
-        alert(`Failed to evaluate RFP ${rfpToEvaluate.id} with AI. Check console for details.`);
-        setAllRfps(prevRfps => prevRfps.map(r => 
-            r.id === rfpToEvaluate.id ? { ...r, isEvaluating: false } : r 
-        ));
-        if (modalRfpSummary?.id === rfpToEvaluate.id) {
-            setModalRfpSummary(prev => prev ? {...prev, isEvaluating: false} : null);
-        }
+      console.error(`Error evaluating single RFP ${rfpToEvaluate.id} with AI:`, error);
+      alert(`Failed to evaluate RFP ${rfpToEvaluate.id} with AI. Check console for details.`);
+      setAllRfps(prevRfps => prevRfps.map(r =>
+        r.id === rfpToEvaluate.id ? { ...r, isEvaluating: false } : r
+      ));
+      if (modalRfpSummary?.id === rfpToEvaluate.id) {
+        setModalRfpSummary(prev => prev ? { ...prev, isEvaluating: false } : null);
+      }
     }
   }, [isCurrentAiProviderConfigured, currentCriteriaConfig, aiSettings, modalRfpDetailData, modalRfpSummary?.id, isGeminiConfiguredViaEnv]);
 
 
   useEffect(() => {
-    setIsGeminiConfiguredViaEnv(isGeminiConfiguredViaEnvHook()); 
-    loadAndEvaluateRfps(false); 
-  }, [loadAndEvaluateRfps]); 
+    setIsGeminiConfiguredViaEnv(isGeminiConfiguredViaEnvHook());
+    loadAndEvaluateRfps(false);
+  }, [loadAndEvaluateRfps]);
 
 
   useEffect(() => {
     const clearTimers = () => {
-        if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
-        if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
-        refreshTimeoutRef.current = null;
-        refreshIntervalRef.current = null;
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+      if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+      refreshTimeoutRef.current = null;
+      refreshIntervalRef.current = null;
     };
 
     if (autoRefreshIntervalHours >= MIN_AUTO_REFRESH_INTERVAL_HOURS) {
-        const intervalMs = autoRefreshIntervalHours * 60 * 60 * 1000;
-        let initialDelayMs = intervalMs;
+      const intervalMs = autoRefreshIntervalHours * 60 * 60 * 1000;
+      let initialDelayMs = intervalMs;
 
-        if (lastSuccessfulFetchTime) {
-            const expectedNextFetch = lastSuccessfulFetchTime + intervalMs;
-            setNextScheduledRefreshTime(expectedNextFetch);
-            initialDelayMs = Math.max(0, expectedNextFetch - Date.now()); 
-        } else {
-            setNextScheduledRefreshTime(Date.now() + intervalMs);
-            initialDelayMs = 0; 
-        }
-        
-        console.log(`Setting up auto-refresh. Interval: ${autoRefreshIntervalHours}h. Initial delay: ${initialDelayMs/1000}s.`);
+      if (lastSuccessfulFetchTime) {
+        const expectedNextFetch = lastSuccessfulFetchTime + intervalMs;
+        setNextScheduledRefreshTime(expectedNextFetch);
+        initialDelayMs = Math.max(0, expectedNextFetch - Date.now());
+      } else {
+        setNextScheduledRefreshTime(Date.now() + intervalMs);
+        initialDelayMs = 0;
+      }
 
-        refreshTimeoutRef.current = window.setTimeout(() => {
-            console.log("Auto-refresh: Initial timeout triggered, fetching data.");
-            loadAndEvaluateRfps(true).then(() => { 
-                if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current); 
-                refreshIntervalRef.current = window.setInterval(() => {
-                    console.log("Auto-refresh: Interval triggered, fetching data.");
-                    loadAndEvaluateRfps(true); 
-                }, intervalMs);
-            });
-        }, initialDelayMs);
+      console.log(`Setting up auto-refresh. Interval: ${autoRefreshIntervalHours}h. Initial delay: ${initialDelayMs / 1000}s.`);
+
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        console.log("Auto-refresh: Initial timeout triggered, fetching data.");
+        loadAndEvaluateRfps(true).then(() => {
+          if (refreshIntervalRef.current) clearInterval(refreshIntervalRef.current);
+          refreshIntervalRef.current = window.setInterval(() => {
+            console.log("Auto-refresh: Interval triggered, fetching data.");
+            loadAndEvaluateRfps(true);
+          }, intervalMs);
+        });
+      }, initialDelayMs);
 
     } else {
-        setNextScheduledRefreshTime(null); 
-        console.log("Auto-refresh disabled or interval too short.");
+      setNextScheduledRefreshTime(null);
+      console.log("Auto-refresh disabled or interval too short.");
     }
 
     return clearTimers;
@@ -802,10 +803,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (lastSuccessfulFetchTime && autoRefreshIntervalHours >= MIN_AUTO_REFRESH_INTERVAL_HOURS) {
-        const intervalMs = autoRefreshIntervalHours * 60 * 60 * 1000;
-        setNextScheduledRefreshTime(lastSuccessfulFetchTime + intervalMs);
+      const intervalMs = autoRefreshIntervalHours * 60 * 60 * 1000;
+      setNextScheduledRefreshTime(lastSuccessfulFetchTime + intervalMs);
     } else {
-        setNextScheduledRefreshTime(null);
+      setNextScheduledRefreshTime(null);
     }
   }, [lastSuccessfulFetchTime, autoRefreshIntervalHours]);
 
@@ -813,7 +814,7 @@ const App: React.FC = () => {
   const handleFilterChange = useCallback(<K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   }, []);
-  
+
   const handleResetFilters = useCallback(() => {
     setFilters(initialFilters);
   }, []);
@@ -888,11 +889,11 @@ const App: React.FC = () => {
       setModalRfpDetailLoading(false);
       setModalFitAnalysisLoading(false);
     }
-  }, [currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv, scrapeRfpDetail]); 
+  }, [currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv, scrapeRfpDetail]);
 
   const handleViewDetailsByIdInRawView = useCallback((rfpId: string) => {
     const rawRfp = rawApiData.find(r => r.id === rfpId);
-    if (rawRfp && rawRfp.url) { 
+    if (rawRfp && rawRfp.url) {
       const summaryRfpForModal: RFPWithEvaluation = {
         id: rawRfp.id,
         title: rawRfp.title,
@@ -902,15 +903,15 @@ const App: React.FC = () => {
         location: rawRfp.location,
         category: rawRfp.category,
         source: `${new URL(rawRfp.url).hostname} (Raw Data - ${currentRfpSourceCategory})`,
-        evaluation: allRfps.find(evaluatedRfp => evaluatedRfp.id === rfpId)?.evaluation 
+        evaluation: allRfps.find(evaluatedRfp => evaluatedRfp.id === rfpId)?.evaluation
       };
       handleViewDetailsClick(summaryRfpForModal);
     } else {
-      setModalRfpSummary({ 
-        id: rfpId, 
-        title: `Details for RFP ${rfpId}`, 
-        summary: rawRfp ? rawRfp.description : 'Raw data not found.', 
-        url: rawRfp?.url || '#', 
+      setModalRfpSummary({
+        id: rfpId,
+        title: `Details for RFP ${rfpId}`,
+        summary: rawRfp ? rawRfp.description : 'Raw data not found.',
+        url: rawRfp?.url || '#',
         source: 'Raw Data'
       });
       setModalRfpDetailError(`Details for RFP ID ${rfpId} could not be fully loaded. URL missing or raw data not found.`);
@@ -934,7 +935,7 @@ const App: React.FC = () => {
     const filtered = combinedRfps
       .filter(rfp => {
         if (filters.showOnlyFit) {
-            if (!rfp.evaluation || !rfp.evaluation.isFit) return false;
+          if (!rfp.evaluation || !rfp.evaluation.isFit) return false;
         }
 
         // Source filter
@@ -955,44 +956,44 @@ const App: React.FC = () => {
 
         return keywordMatch && deadlineMatch;
       });
-    
+
     const sorted = filtered.sort((a, b) => {
-        let valA: any;
-        let valB: any;
+      let valA: any;
+      let valB: any;
 
-        if (sortConfig.key === 'score') {
-            valA = a.evaluation?.score ?? -1; 
-            valB = b.evaluation?.score ?? -1;
-        } else if (sortConfig.key === 'deadlineDate') {
-            const dateA = a.deadline ? new Date(a.deadline + 'T00:00:00').getTime() : 0;
-            const dateB = b.deadline ? new Date(b.deadline + 'T00:00:00').getTime() : 0;
-            valA = isNaN(dateA) ? 0 : dateA;
-            valB = isNaN(dateB) ? 0 : dateB;
+      if (sortConfig.key === 'score') {
+        valA = a.evaluation?.score ?? -1;
+        valB = b.evaluation?.score ?? -1;
+      } else if (sortConfig.key === 'deadlineDate') {
+        const dateA = a.deadline ? new Date(a.deadline + 'T00:00:00').getTime() : 0;
+        const dateB = b.deadline ? new Date(b.deadline + 'T00:00:00').getTime() : 0;
+        valA = isNaN(dateA) ? 0 : dateA;
+        valB = isNaN(dateB) ? 0 : dateB;
 
-            if (valA === 0 && valB !== 0) return sortConfig.direction === 'ascending' ? 1 : -1;
-            if (valB === 0 && valA !== 0) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (valA === 0 && valB !== 0) return sortConfig.direction === 'ascending' ? 1 : -1;
+        if (valB === 0 && valA !== 0) return sortConfig.direction === 'ascending' ? -1 : 1;
 
-        } else { 
-            valA = a[sortConfig.key as keyof Omit<RFPWithEvaluation, 'budget'>];
-            valB = b[sortConfig.key as keyof Omit<RFPWithEvaluation, 'budget'>];
-        }
+      } else {
+        valA = a[sortConfig.key as keyof Omit<RFPWithEvaluation, 'budget'>];
+        valB = b[sortConfig.key as keyof Omit<RFPWithEvaluation, 'budget'>];
+      }
 
-        if (valA === undefined || valA === null) valA = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
-        if (valB === undefined || valB === null) valB = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
+      if (valA === undefined || valA === null) valA = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
+      if (valB === undefined || valB === null) valB = sortConfig.direction === 'ascending' ? Infinity : -Infinity;
 
 
-        if (typeof valA === 'string' && typeof valB === 'string') {
-            return sortConfig.direction === 'ascending' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-        
-        if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-        
-        const titleA = a.title || '';
-        const titleB = b.title || '';
-        return titleA.localeCompare(titleB);
-      });
-      return sorted;
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return sortConfig.direction === 'ascending' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+
+      if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+
+      const titleA = a.title || '';
+      const titleB = b.title || '';
+      return titleA.localeCompare(titleB);
+    });
+    return sorted;
   }, [allRfps, convexRfps, filters, sortConfig, sourceFilter]);
 
   const handleRfpSelectionToggle = useCallback((rfpId: string) => {
@@ -1045,7 +1046,7 @@ const App: React.FC = () => {
     if (displayedRfps.length === 0) return false;
     return displayedRfps.every(rfp => selectedRfpIds.has(rfp.id));
   }, [displayedRfps, selectedRfpIds]);
-  
+
   const isIndeterminate = useMemo(() => {
     if (displayedRfps.length === 0) return false;
     const someSelected = displayedRfps.some(rfp => selectedRfpIds.has(rfp.id));
@@ -1060,17 +1061,17 @@ const App: React.FC = () => {
     if (sortConfig.key !== key) return <span className="text-accents-4 dark:text-accents-5">↕</span>;
     return sortConfig.direction === 'ascending' ? '↑' : '↓';
   };
-  
-  const DetailItem: React.FC<{label: string, value?: React.ReactNode, htmlValue?: string, preformatted?: boolean}> = ({label, value, htmlValue, preformatted}) => (
+
+  const DetailItem: React.FC<{ label: string, value?: React.ReactNode, htmlValue?: string, preformatted?: boolean }> = ({ label, value, htmlValue, preformatted }) => (
     <div className="mb-3 py-2 border-b border-accents-2 dark:border-dark-accents-2 last:border-b-0">
-        <span className="font-medium text-geist-secondary dark:text-dark-geist-secondary block sm:inline sm:mr-2">{label}:</span>
-        {htmlValue ? (
-            <span className="text-sm text-geist-foreground dark:text-dark-geist-foreground" dangerouslySetInnerHTML={{ __html: htmlValue }} />
-        ) : preformatted ? (
-            <pre className="text-sm text-geist-foreground dark:text-dark-geist-foreground whitespace-pre-wrap font-sans">{value !== undefined ? value : 'N/A'}</pre>
-        ) : (
-            <span className="text-sm text-geist-foreground dark:text-dark-geist-foreground">{value !== undefined ? value : 'N/A'}</span>
-        )}
+      <span className="font-medium text-geist-secondary dark:text-dark-geist-secondary block sm:inline sm:mr-2">{label}:</span>
+      {htmlValue ? (
+        <span className="text-sm text-geist-foreground dark:text-dark-geist-foreground" dangerouslySetInnerHTML={{ __html: htmlValue }} />
+      ) : preformatted ? (
+        <pre className="text-sm text-geist-foreground dark:text-dark-geist-foreground whitespace-pre-wrap font-sans">{value !== undefined ? value : 'N/A'}</pre>
+      ) : (
+        <span className="text-sm text-geist-foreground dark:text-dark-geist-foreground">{value !== undefined ? value : 'N/A'}</span>
+      )}
     </div>
   );
 
@@ -1088,7 +1089,7 @@ const App: React.FC = () => {
   );
 
   const modalTitle = modalRfpDetailData?.title && modalRfpDetailData.title.trim() !== "" ? modalRfpDetailData.title : modalRfpSummary?.title || "RFP Details";
-  
+
   const pageSubtitle = useMemo(() => {
     const sourceName = currentRfpSourceCategory === 'web' ? 'Web Development' : 'Mobile Development';
     if (apiFetchFailedWarning) {
@@ -1105,34 +1106,34 @@ const App: React.FC = () => {
     let specificConfigMessage = API_KEY_ERROR_MESSAGE; // Default
 
     if (provider === AiProvider.GEMINI) {
-        configuredStatus = isGeminiConfiguredViaEnv;
-        if (!configuredStatus) specificConfigMessage = GEMINI_ENV_API_KEY_ERROR_MESSAGE;
+      configuredStatus = isGeminiConfiguredViaEnv;
+      if (!configuredStatus) specificConfigMessage = GEMINI_ENV_API_KEY_ERROR_MESSAGE;
     } else if (provider === AiProvider.OLLAMA || provider === AiProvider.LM_STUDIO) {
-        configuredStatus = !!config?.baseUrl && !!config?.model; // Both need base URL and a model to be "configured"
-        if (!config?.baseUrl && !config?.model) specificConfigMessage = `${provider} Base URL and Model not configured in Admin.`;
-        else if (!config?.baseUrl) specificConfigMessage = `${provider} Base URL not configured in Admin.`;
-        else if (!config?.model) specificConfigMessage = `${provider} Model not selected/configured in Admin.`;
+      configuredStatus = !!config?.baseUrl && !!config?.model; // Both need base URL and a model to be "configured"
+      if (!config?.baseUrl && !config?.model) specificConfigMessage = `${provider} Base URL and Model not configured in Admin.`;
+      else if (!config?.baseUrl) specificConfigMessage = `${provider} Base URL not configured in Admin.`;
+      else if (!config?.model) specificConfigMessage = `${provider} Model not selected/configured in Admin.`;
     } else { // For other API key based providers
-        configuredStatus = !!config?.apiKey && !!config?.model;
-        if (!config?.apiKey && !config?.model) specificConfigMessage = `${provider} API Key and Model not configured in Admin.`;
-        else if (!config?.apiKey) specificConfigMessage = `${provider} API Key not configured in Admin.`;
-        else if (!config?.model) specificConfigMessage = `${provider} Model not selected/configured in Admin.`;
+      configuredStatus = !!config?.apiKey && !!config?.model;
+      if (!config?.apiKey && !config?.model) specificConfigMessage = `${provider} API Key and Model not configured in Admin.`;
+      else if (!config?.apiKey) specificConfigMessage = `${provider} API Key not configured in Admin.`;
+      else if (!config?.model) specificConfigMessage = `${provider} Model not selected/configured in Admin.`;
     }
 
     if (!configuredStatus) {
-        return `${provider} not fully configured: ${specificConfigMessage} Text analysis will use basic keyword matching.`;
+      return `${provider} not fully configured: ${specificConfigMessage} Text analysis will use basic keyword matching.`;
     }
     if (!aiSettings.useAiForEvaluation) {
       return `${provider} AI analysis is currently disabled by user. Text analysis will use basic keyword matching.`;
     }
     return null;
   }, [
-      aiSettings.selectedProvider,
-      aiSettings.providerConfigs,
-      aiSettings.useAiForEvaluation,
-      isGeminiConfiguredViaEnv
+    aiSettings.selectedProvider,
+    aiSettings.providerConfigs,
+    aiSettings.useAiForEvaluation,
+    isGeminiConfiguredViaEnv
   ]);
-  
+
   const modalRfpIsEvaluating = modalRfpSummary?.isEvaluating || false;
 
   return (
@@ -1265,295 +1266,294 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <header className="mb-10 pb-8 border-b border-accents-2 dark:border-dark-accents-2">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex-1 text-center sm:text-left flex items-center">
-                    <div>
-                        <h1 className="text-3xl sm:text-4xl font-bold text-geist-foreground dark:text-dark-geist-foreground">RFP Discovery Platform</h1>
-                        <p className="text-md text-geist-secondary dark:text-dark-geist-secondary mt-1">{pageSubtitle}</p>
-                    </div>
+              <div className="flex-1 text-center sm:text-left flex items-center">
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-bold text-geist-foreground dark:text-dark-geist-foreground">RFP Discovery Platform</h1>
+                  <p className="text-md text-geist-secondary dark:text-dark-geist-secondary mt-1">{pageSubtitle}</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                    <ViewSwitcher currentView={currentView} onSwitchView={handleViewSwitch} />
-                    <ThemeSwitcher currentTheme={theme} toggleTheme={toggleTheme} />
-                    <AuthButtons />
-                </div>
-            </div>
-        {(apiFetchFailedWarning && currentView !== 'admin') && (
-           <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-30 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-200 rounded-md shadow-vercel-sm" role="alert">
-            <p className="font-semibold">API Alert</p>
-            <p className="text-sm">{apiFetchFailedWarning}</p>
-          </div>
-        )}
-        {aiWarningMessage && currentView !== 'admin' && (
-          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-30 border border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-200 rounded-md shadow-vercel-sm" role="alert">
-            <p className="font-semibold">{aiSettings.selectedProvider} AI Status</p>
-            <p className="text-sm">{aiWarningMessage}</p>
-          </div>
-        )}
-      </header>
-
-      {currentView === 'home' && (
-        <>
-          <FilterControls 
-            filters={filters} 
-            onFilterChange={handleFilterChange} 
-            onResetFilters={handleResetFilters}
-            currentRfpSourceCategory={currentRfpSourceCategory}
-            onSwitchRfpSourceCategory={handleSwitchRfpSourceCategory}
-            currentRfpLimit={currentRfpLimit}
-            onChangeRfpLimit={handleChangeRfpLimit}
-          />
-          
-          <SelectionControls
-            selectedCount={selectedRfpIds.size}
-            displayedCount={displayedRfps.length}
-            onToggleSelectAllDisplayed={handleToggleSelectAllDisplayed}
-            isAllDisplayedSelected={isAllDisplayedSelected}
-            isIndeterminate={isIndeterminate}
-            onSelectBestFits={handleSelectBestFits}
-            onDeselectAll={handleDeselectAll}
-            onExportSelectedToCsv={handleExportSelectedToCsv}
-            hasGoodFitsDisplayed={hasGoodFitsDisplayed}
-            onManualRefresh={() => loadAndEvaluateRfps(false)} 
-            isRefreshing={isLoading}
-            lastSuccessfulFetchTime={lastSuccessfulFetchTime}
-            nextScheduledRefreshTime={nextScheduledRefreshTime}
-            autoRefreshIntervalHours={autoRefreshIntervalHours}
-            useAiForEvaluation={aiSettings.useAiForEvaluation}
-            onToggleUseAi={() => handleUpdateAiSettings(prev => ({...prev, useAiForEvaluation: !prev.useAiForEvaluation}))}
-            isCurrentAiProviderConfigured={isCurrentAiProviderConfigured}
-            selectedAiProvider={aiSettings.selectedProvider}
-          />
-
-          <div className="flex flex-col sm:flex-row justify-between items-center my-6 gap-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <p className="text-sm text-geist-secondary dark:text-dark-geist-secondary">
-                  { isLoading ? 'Loading...' : `Showing ${displayedRfps.length} of ${allRfps.length + convexRfps.length} RFPs` }
-                  {selectedRfpIds.size > 0 && ` (${selectedRfpIds.size} selected)`}
-                  {allRfps.length > 0 && allRfps[0]?.source.includes('Mock') && !apiFetchFailedWarning && ` (Using Mock Data for ${currentRfpSourceCategory})`}
-              </p>
-              {/* Source Filter Chips */}
-              <div className="flex items-center gap-1 p-0.5 bg-accents-1 dark:bg-dark-accents-1 border border-accents-2 dark:border-dark-accents-2 rounded-md">
-                {(['all', 'sam.gov', 'rfpmart', 'csv'] as const).map((src) => (
-                  <button
-                    key={src}
-                    onClick={() => setSourceFilter(src)}
-                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${
-                      sourceFilter === src
-                        ? 'bg-white dark:bg-dark-accents-2 text-geist-foreground dark:text-dark-geist-foreground shadow-sm'
-                        : 'text-accents-5 dark:text-accents-4 hover:bg-accents-2 dark:hover:bg-dark-accents-2'
-                    }`}
-                    aria-pressed={sourceFilter === src}
-                  >
-                    {src === 'all' ? 'All' : src === 'sam.gov' ? 'SAM.gov' : src === 'rfpmart' ? 'RFPMart' : 'CSV'}
-                  </button>
-                ))}
+              </div>
+              <div className="flex items-center space-x-3">
+                <ViewSwitcher currentView={currentView} onSwitchView={handleViewSwitch} />
+                <ThemeSwitcher currentTheme={theme} toggleTheme={toggleTheme} />
+                <AuthButtons />
               </div>
             </div>
-            <div className="flex space-x-2">
-                <button
-                  onClick={() => handleSort('score')}
-                  className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border border-accents-2 dark:border-dark-accents-2 rounded-md hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground transition-colors"
-                  aria-label={`Sort by score, current direction: ${sortConfig.key === 'score' ? sortConfig.direction : 'none'}`}
-                >
-                  Score {renderSortIcon('score')}
-                </button>
-                <button
-                  onClick={() => handleSort('deadlineDate')}
-                  className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border border-accents-2 dark:border-dark-accents-2 rounded-md hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground transition-colors"
-                  aria-label={`Sort by deadline, current direction: ${sortConfig.key === 'deadlineDate' ? sortConfig.direction : 'none'}`}
-                >
-                  Deadline {renderSortIcon('deadlineDate')}
-                </button>
-            </div>
-          </div>
+            {(apiFetchFailedWarning && currentView !== 'admin') && (
+              <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-30 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-200 rounded-md shadow-vercel-sm" role="alert">
+                <p className="font-semibold">API Alert</p>
+                <p className="text-sm">{apiFetchFailedWarning}</p>
+              </div>
+            )}
+            {aiWarningMessage && currentView !== 'admin' && (
+              <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-30 border border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-200 rounded-md shadow-vercel-sm" role="alert">
+                <p className="font-semibold">{aiSettings.selectedProvider} AI Status</p>
+                <p className="text-sm">{aiWarningMessage}</p>
+              </div>
+            )}
+          </header>
 
-          {isLoading && <div className="py-20"><LoadingSpinner message="Loading and evaluating RFPs..." /></div>}
-          {error && !apiFetchFailedWarning && <div className="text-center text-red-600 dark:text-red-400 p-6 bg-red-50 dark:bg-red-900 dark:bg-opacity-30 rounded-md shadow-vercel-sm" role="alert">Critical Error: {error}</div>}
+          {currentView === 'home' && (
+            <>
+              <FilterControls
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                onResetFilters={handleResetFilters}
+                currentRfpSourceCategory={currentRfpSourceCategory}
+                onSwitchRfpSourceCategory={handleSwitchRfpSourceCategory}
+                currentRfpLimit={currentRfpLimit}
+                onChangeRfpLimit={handleChangeRfpLimit}
+              />
 
-          {!isLoading && displayedRfps.length === 0 && ( 
-            <div className="text-center text-geist-secondary dark:text-dark-geist-secondary p-12 bg-white dark:bg-dark-accents-1 rounded-lg shadow-vercel-md">
-              No RFPs match your current filters {allRfps.length > 0 ? 'from the current data set.' : 'or no data could be loaded.'}
-            </div>
+              <SelectionControls
+                selectedCount={selectedRfpIds.size}
+                displayedCount={displayedRfps.length}
+                onToggleSelectAllDisplayed={handleToggleSelectAllDisplayed}
+                isAllDisplayedSelected={isAllDisplayedSelected}
+                isIndeterminate={isIndeterminate}
+                onSelectBestFits={handleSelectBestFits}
+                onDeselectAll={handleDeselectAll}
+                onExportSelectedToCsv={handleExportSelectedToCsv}
+                hasGoodFitsDisplayed={hasGoodFitsDisplayed}
+                onManualRefresh={() => loadAndEvaluateRfps(false)}
+                isRefreshing={isLoading}
+                lastSuccessfulFetchTime={lastSuccessfulFetchTime}
+                nextScheduledRefreshTime={nextScheduledRefreshTime}
+                autoRefreshIntervalHours={autoRefreshIntervalHours}
+                useAiForEvaluation={aiSettings.useAiForEvaluation}
+                onToggleUseAi={() => handleUpdateAiSettings(prev => ({ ...prev, useAiForEvaluation: !prev.useAiForEvaluation }))}
+                isCurrentAiProviderConfigured={isCurrentAiProviderConfigured}
+                selectedAiProvider={aiSettings.selectedProvider}
+              />
+
+              <div className="flex flex-col sm:flex-row justify-between items-center my-6 gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <p className="text-sm text-geist-secondary dark:text-dark-geist-secondary">
+                    {isLoading ? 'Loading...' : `Showing ${displayedRfps.length} of ${allRfps.length + convexRfps.length} RFPs`}
+                    {selectedRfpIds.size > 0 && ` (${selectedRfpIds.size} selected)`}
+                    {allRfps.length > 0 && allRfps[0]?.source.includes('Mock') && !apiFetchFailedWarning && ` (Using Mock Data for ${currentRfpSourceCategory})`}
+                  </p>
+                  {/* Source Filter Chips */}
+                  <div className="flex items-center gap-1 p-0.5 bg-accents-1 dark:bg-dark-accents-1 border border-accents-2 dark:border-dark-accents-2 rounded-md">
+                    {(['all', 'sam.gov', 'rfpmart', 'csv'] as const).map((src) => (
+                      <button
+                        key={src}
+                        onClick={() => setSourceFilter(src)}
+                        className={`px-2 py-1 text-xs font-medium rounded transition-all ${sourceFilter === src
+                            ? 'bg-white dark:bg-dark-accents-2 text-geist-foreground dark:text-dark-geist-foreground shadow-sm'
+                            : 'text-accents-5 dark:text-accents-4 hover:bg-accents-2 dark:hover:bg-dark-accents-2'
+                          }`}
+                        aria-pressed={sourceFilter === src}
+                      >
+                        {src === 'all' ? 'All' : src === 'sam.gov' ? 'SAM.gov' : src === 'rfpmart' ? 'RFPMart' : 'CSV'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleSort('score')}
+                    className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border border-accents-2 dark:border-dark-accents-2 rounded-md hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground transition-colors"
+                    aria-label={`Sort by score, current direction: ${sortConfig.key === 'score' ? sortConfig.direction : 'none'}`}
+                  >
+                    Score {renderSortIcon('score')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('deadlineDate')}
+                    className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border border-accents-2 dark:border-dark-accents-2 rounded-md hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground transition-colors"
+                    aria-label={`Sort by deadline, current direction: ${sortConfig.key === 'deadlineDate' ? sortConfig.direction : 'none'}`}
+                  >
+                    Deadline {renderSortIcon('deadlineDate')}
+                  </button>
+                </div>
+              </div>
+
+              {isLoading && <div className="py-20"><LoadingSpinner message="Loading and evaluating RFPs..." /></div>}
+              {error && !apiFetchFailedWarning && <div className="text-center text-red-600 dark:text-red-400 p-6 bg-red-50 dark:bg-red-900 dark:bg-opacity-30 rounded-md shadow-vercel-sm" role="alert">Critical Error: {error}</div>}
+
+              {!isLoading && displayedRfps.length === 0 && (
+                <div className="text-center text-geist-secondary dark:text-dark-geist-secondary p-12 bg-white dark:bg-dark-accents-1 rounded-lg shadow-vercel-md">
+                  No RFPs match your current filters {allRfps.length > 0 ? 'from the current data set.' : 'or no data could be loaded.'}
+                </div>
+              )}
+
+              {!isLoading && displayedRfps.length > 0 && (
+                <div className="space-y-6">
+                  {displayedRfps.map(rfp => (
+                    <RfpCard
+                      key={rfp.id}
+                      rfp={rfp}
+                      onViewDetails={() => handleViewDetailsClick(rfp)}
+                      isSelected={selectedRfpIds.has(rfp.id)}
+                      onToggleSelection={handleRfpSelectionToggle}
+                      onEvaluateSingleWithAi={handleEvaluateSingleRfpWithAi}
+                      isCurrentAiProviderConfigured={isCurrentAiProviderConfigured}
+                      selectedAiProvider={aiSettings.selectedProvider}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
-          {!isLoading && displayedRfps.length > 0 && ( 
-            <div className="space-y-6">
-              {displayedRfps.map(rfp => (
-                <RfpCard 
-                  key={rfp.id} 
-                  rfp={rfp} 
-                  onViewDetails={() => handleViewDetailsClick(rfp)}
-                  isSelected={selectedRfpIds.has(rfp.id)}
-                  onToggleSelection={handleRfpSelectionToggle}
-                  onEvaluateSingleWithAi={handleEvaluateSingleRfpWithAi}
-                  isCurrentAiProviderConfigured={isCurrentAiProviderConfigured}
-                  selectedAiProvider={aiSettings.selectedProvider} 
-                />
-              ))}
-            </div>
+          {currentView === 'rawData' && (
+            <>
+              {isLoading && <div className="py-20"><LoadingSpinner message="Loading raw API data..." /></div>}
+              {error && !apiFetchFailedWarning && <div className="text-center text-red-600 dark:text-red-400 p-6 bg-red-50 dark:bg-red-900 dark:bg-opacity-30 rounded-md shadow-vercel-sm" role="alert">Error fetching raw data: {error}</div>}
+              {!isLoading && !error && <RawDataView data={rawApiData} onViewDetailsById={handleViewDetailsByIdInRawView} />}
+              {!isLoading && error && rawApiData.length > 0 && (
+                <RawDataView data={rawApiData} onViewDetailsById={handleViewDetailsByIdInRawView} />
+              )}
+            </>
           )}
-        </>
-      )}
 
-      {currentView === 'rawData' && (
-        <>
-          {isLoading && <div className="py-20"><LoadingSpinner message="Loading raw API data..." /></div>}
-          {error && !apiFetchFailedWarning && <div className="text-center text-red-600 dark:text-red-400 p-6 bg-red-50 dark:bg-red-900 dark:bg-opacity-30 rounded-md shadow-vercel-sm" role="alert">Error fetching raw data: {error}</div>}
-          {!isLoading && !error && <RawDataView data={rawApiData} onViewDetailsById={handleViewDetailsByIdInRawView} />}
-           {!isLoading && error && rawApiData.length > 0 && ( 
-            <RawDataView data={rawApiData} onViewDetailsById={handleViewDetailsByIdInRawView} />
+          {currentView === 'admin' && (
+            <AdminView
+              criteriaConfig={currentCriteriaConfig}
+              onToggleMasterCriterion={handleToggleMasterCriterion}
+              onToggleCriterionItem={handleToggleCriterionItem}
+              aiSettings={aiSettings}
+              onUpdateAiSettings={handleUpdateAiSettings}
+              onAutoImproveCorePrompt={handleAutoImproveCorePrompt}
+              isImprovingPrompt={isImprovingPrompt}
+              autoRefreshIntervalHours={autoRefreshIntervalHours}
+              onUpdateAutoRefreshInterval={handleUpdateAutoRefreshInterval}
+              isGeminiConfiguredViaEnv={isGeminiConfiguredViaEnv}
+            />
           )}
-        </>
-      )}
-
-      {currentView === 'admin' && (
-        <AdminView 
-            criteriaConfig={currentCriteriaConfig}
-            onToggleMasterCriterion={handleToggleMasterCriterion}
-            onToggleCriterionItem={handleToggleCriterionItem}
-            aiSettings={aiSettings}
-            onUpdateAiSettings={handleUpdateAiSettings}
-            onAutoImproveCorePrompt={handleAutoImproveCorePrompt}
-            isImprovingPrompt={isImprovingPrompt}
-            autoRefreshIntervalHours={autoRefreshIntervalHours}
-            onUpdateAutoRefreshInterval={handleUpdateAutoRefreshInterval}
-            isGeminiConfiguredViaEnv={isGeminiConfiguredViaEnv}
-        />
-      )}
 
 
-      {modalRfpSummary && (
-        <Modal isOpen={!!modalRfpSummary} onClose={closeModal} title={modalTitle}>
-            <div className="text-sm">
+          {modalRfpSummary && (
+            <Modal isOpen={!!modalRfpSummary} onClose={closeModal} title={modalTitle}>
+              <div className="text-sm">
                 {modalRfpDetailLoading && <div className="py-10"><LoadingSpinner message="Loading RFP details..." /></div>}
                 {modalRfpDetailError && (
-                    <div className="text-center text-red-600 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 dark:bg-opacity-30 rounded-md" role="alert">
-                        Error loading details: {modalRfpDetailError}
-                    </div>
+                  <div className="text-center text-red-600 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 dark:bg-opacity-30 rounded-md" role="alert">
+                    Error loading details: {modalRfpDetailError}
+                  </div>
                 )}
 
                 {modalRfpDetailData && !modalRfpDetailLoading && !modalRfpDetailError && (
-                    <>
-                        <DetailItem label="Full RFP URL" value={<a href={modalRfpDetailData.url} target="_blank" rel="noopener noreferrer" className="text-vercel-blue hover:underline break-all">{modalRfpDetailData.url}</a>} />
-                        <DetailItem label="Detailed Description" htmlValue={highlightKeywords(modalRfpDetailData.description, allHighlightKeywords)} />
-                        <DetailItem label="Scope of Service" htmlValue={highlightKeywords(modalRfpDetailData.scope_of_service, allHighlightKeywords)} />
-                        <DetailItem label="Posted Date" value={modalRfpDetailData.posted_date} />
-                        <DetailItem label="Expiry / Key Dates" value={modalRfpDetailData.expiry_date} />
-                        <DetailItem label="Question Deadline" value={modalRfpDetailData.question_deadline} />
-                        <DetailItem label="RFP Location" value={modalRfpDetailData.location} />
-                        <DetailItem label="Budget Info (from detail)" value={modalRfpDetailData.budget} />
-                        <DetailItem label="Eligibility" value={modalRfpDetailData.eligibility} />
-                        <DetailItem label="Work Performance" value={modalRfpDetailData.work_performance} />
-                        <DetailItem label="Category (from detail)" value={modalRfpDetailData.category} />
-                        <DetailItem label="Country" value={modalRfpDetailData.country} />
-                        <DetailItem label="State" value={modalRfpDetailData.state} />
-                        <DetailItem label="Detail Source ID" value={modalRfpDetailData.id} />
-                    </>
+                  <>
+                    <DetailItem label="Full RFP URL" value={<a href={modalRfpDetailData.url} target="_blank" rel="noopener noreferrer" className="text-vercel-blue hover:underline break-all">{modalRfpDetailData.url}</a>} />
+                    <DetailItem label="Detailed Description" htmlValue={highlightKeywords(modalRfpDetailData.description, allHighlightKeywords)} />
+                    <DetailItem label="Scope of Service" htmlValue={highlightKeywords(modalRfpDetailData.scope_of_service, allHighlightKeywords)} />
+                    <DetailItem label="Posted Date" value={modalRfpDetailData.posted_date} />
+                    <DetailItem label="Expiry / Key Dates" value={modalRfpDetailData.expiry_date} />
+                    <DetailItem label="Question Deadline" value={modalRfpDetailData.question_deadline} />
+                    <DetailItem label="RFP Location" value={modalRfpDetailData.location} />
+                    <DetailItem label="Budget Info (from detail)" value={modalRfpDetailData.budget} />
+                    <DetailItem label="Eligibility" value={modalRfpDetailData.eligibility} />
+                    <DetailItem label="Work Performance" value={modalRfpDetailData.work_performance} />
+                    <DetailItem label="Category (from detail)" value={modalRfpDetailData.category} />
+                    <DetailItem label="Country" value={modalRfpDetailData.country} />
+                    <DetailItem label="State" value={modalRfpDetailData.state} />
+                    <DetailItem label="Detail Source ID" value={modalRfpDetailData.id} />
+                  </>
                 )}
-                
-                 <div className="mt-4 pt-4 border-t border-accents-2 dark:border-dark-accents-2">
-                    {modalRfpSummary.evaluation && (
-                        <>
-                            <h4 className="font-semibold text-md text-geist-foreground dark:text-dark-geist-foreground mb-2">
-                                Evaluation Summary {modalRfpIsEvaluating ? "(Updating...)" : ""}
-                            </h4>
-                            {modalRfpSummary.evaluation.aiProviderError && (
-                               <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2 p-2 bg-red-50 dark:bg-red-900 dark:bg-opacity-20 rounded-md border border-red-200 dark:border-red-700" role="alert">
-                                  <strong>AI Provider Error:</strong> {modalRfpSummary.evaluation.aiProviderError}
-                               </p>
-                            )}
-                            <DetailItem 
-                              label="Overall Score" 
-                              value={`${modalRfpSummary.evaluation.score}/${modalRfpSummary.evaluation.maxScore} (${modalRfpSummary.evaluation.isFit ? 'Good Fit' : 'Potential Mismatch'})`} 
-                            />
-                             <p className="text-geist-secondary dark:text-dark-geist-secondary mb-3 text-xs">{modalRfpSummary.evaluation.reasoning}</p>
-                             <div className="space-y-2 mt-3">
-                                {Object.entries(modalRfpSummary.evaluation.criteriaResults).map(([key, result]) => {
-                                    const criterionKeyTyped = key as EvaluationCriterionKey;
-                                    const criterionConfig = currentCriteriaConfig[criterionKeyTyped]; 
-                                    if (!criterionConfig || !criterionConfig.isMasterEnabled) return null; 
-                                    return (
-                                        <div key={key} className={`p-3 rounded-md border text-xs ${result.met ? 'bg-green-50 dark:bg-green-900 dark:bg-opacity-20 border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-20 border-red-200 dark:border-red-700'}`}>
-                                            <div className="flex items-center">
-                                                {result.met ? (
-                                                    <span className="inline-flex items-center justify-center w-4 h-4 mr-2 rounded-full bg-green-500 text-white flex-shrink-0"><ModalTickIcon /></span>
-                                                ) : (
-                                                    <span className="inline-flex items-center justify-center w-4 h-4 mr-2 rounded-full border border-red-500 text-red-500 flex-shrink-0"><ModalCrossIcon /></span>
-                                                )}
-                                                <p className={`font-medium ${result.met ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>{criterionConfig.key}</p>
-                                            </div>
-                                            {result.details && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mt-1 pl-6">{result.details}</p>}
-                                        </div>
-                                    );
-                                })}
+
+                <div className="mt-4 pt-4 border-t border-accents-2 dark:border-dark-accents-2">
+                  {modalRfpSummary.evaluation && (
+                    <>
+                      <h4 className="font-semibold text-md text-geist-foreground dark:text-dark-geist-foreground mb-2">
+                        Evaluation Summary {modalRfpIsEvaluating ? "(Updating...)" : ""}
+                      </h4>
+                      {modalRfpSummary.evaluation.aiProviderError && (
+                        <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2 p-2 bg-red-50 dark:bg-red-900 dark:bg-opacity-20 rounded-md border border-red-200 dark:border-red-700" role="alert">
+                          <strong>AI Provider Error:</strong> {modalRfpSummary.evaluation.aiProviderError}
+                        </p>
+                      )}
+                      <DetailItem
+                        label="Overall Score"
+                        value={`${modalRfpSummary.evaluation.score}/${modalRfpSummary.evaluation.maxScore} (${modalRfpSummary.evaluation.isFit ? 'Good Fit' : 'Potential Mismatch'})`}
+                      />
+                      <p className="text-geist-secondary dark:text-dark-geist-secondary mb-3 text-xs">{modalRfpSummary.evaluation.reasoning}</p>
+                      <div className="space-y-2 mt-3">
+                        {Object.entries(modalRfpSummary.evaluation.criteriaResults).map(([key, result]) => {
+                          const criterionKeyTyped = key as EvaluationCriterionKey;
+                          const criterionConfig = currentCriteriaConfig[criterionKeyTyped];
+                          if (!criterionConfig || !criterionConfig.isMasterEnabled) return null;
+                          return (
+                            <div key={key} className={`p-3 rounded-md border text-xs ${result.met ? 'bg-green-50 dark:bg-green-900 dark:bg-opacity-20 border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-20 border-red-200 dark:border-red-700'}`}>
+                              <div className="flex items-center">
+                                {result.met ? (
+                                  <span className="inline-flex items-center justify-center w-4 h-4 mr-2 rounded-full bg-green-500 text-white flex-shrink-0"><ModalTickIcon /></span>
+                                ) : (
+                                  <span className="inline-flex items-center justify-center w-4 h-4 mr-2 rounded-full border border-red-500 text-red-500 flex-shrink-0"><ModalCrossIcon /></span>
+                                )}
+                                <p className={`font-medium ${result.met ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>{criterionConfig.key}</p>
+                              </div>
+                              {result.details && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mt-1 pl-6">{result.details}</p>}
                             </div>
-                        </>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Fit Analysis Section */}
+                  <div className="mt-6 pt-4 border-t border-accents-2 dark:border-dark-accents-2">
+                    <h3 className="text-lg font-semibold text-geist-foreground dark:text-dark-geist-foreground mb-2">
+                      Fit Analysis & Recommendation
+                    </h3>
+                    {modalFitAnalysisLoading && (
+                      <div className="py-6"><LoadingSpinner message="Generating fit analysis..." /></div>
                     )}
-                    
-                    {/* Fit Analysis Section */}
-                    <div className="mt-6 pt-4 border-t border-accents-2 dark:border-dark-accents-2">
-                        <h3 className="text-lg font-semibold text-geist-foreground dark:text-dark-geist-foreground mb-2">
-                            Fit Analysis & Recommendation
-                        </h3>
-                        {modalFitAnalysisLoading && (
-                            <div className="py-6"><LoadingSpinner message="Generating fit analysis..." /></div>
+                    {!modalFitAnalysisLoading && modalRfpDetailData?.fitAnalysis?.analysisError && (
+                      <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900 dark:bg-opacity-20 rounded-md" role="alert">
+                        Error generating fit analysis: {modalRfpDetailData.fitAnalysis.analysisError}
+                      </div>
+                    )}
+                    {!modalFitAnalysisLoading && modalRfpDetailData?.fitAnalysis && !modalRfpDetailData.fitAnalysis.analysisError && (
+                      <div className="space-y-1"> {/* Reduced space-y for tighter packing if needed */}
+                        {/* Recommendation first */}
+                        {modalRfpDetailData.fitAnalysis.recommendation && (
+                          <div>
+                            <FormattedTextDisplay text={modalRfpDetailData.fitAnalysis.recommendation} />
+                          </div>
                         )}
-                        {!modalFitAnalysisLoading && modalRfpDetailData?.fitAnalysis?.analysisError && (
-                            <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900 dark:bg-opacity-20 rounded-md" role="alert">
-                                Error generating fit analysis: {modalRfpDetailData.fitAnalysis.analysisError}
-                            </div>
+
+                        {/* Then What Makes It Fit / Areas for Clarification */}
+                        {modalRfpDetailData.fitAnalysis.whatMakesItFit && (
+                          <div className="mt-3"> {/* Margin to separate from recommendation block */}
+                            {/* No explicit heading here, relying on FormattedTextDisplay to render internal headings */}
+                            <FormattedTextDisplay text={modalRfpDetailData.fitAnalysis.whatMakesItFit} />
+                          </div>
                         )}
-                        {!modalFitAnalysisLoading && modalRfpDetailData?.fitAnalysis && !modalRfpDetailData.fitAnalysis.analysisError && (
-                            <div className="space-y-1"> {/* Reduced space-y for tighter packing if needed */}
-                                {/* Recommendation first */}
-                                {modalRfpDetailData.fitAnalysis.recommendation && (
-                                    <div>
-                                        <FormattedTextDisplay text={modalRfpDetailData.fitAnalysis.recommendation} />
-                                    </div>
-                                )}
 
-                                {/* Then What Makes It Fit / Areas for Clarification */}
-                                {modalRfpDetailData.fitAnalysis.whatMakesItFit && (
-                                    <div className="mt-3"> {/* Margin to separate from recommendation block */}
-                                        {/* No explicit heading here, relying on FormattedTextDisplay to render internal headings */}
-                                        <FormattedTextDisplay text={modalRfpDetailData.fitAnalysis.whatMakesItFit} />
-                                    </div>
-                                )}
-
-                                {modalRfpDetailData.fitAnalysis.generatedBy && (
-                                    <p className="text-xs text-accents-5 dark:text-accents-4 mt-3 text-right">
-                                        Analysis generated by: {modalRfpDetailData.fitAnalysis.generatedBy}
-                                    </p>
-                                )}
-                            </div>
+                        {modalRfpDetailData.fitAnalysis.generatedBy && (
+                          <p className="text-xs text-accents-5 dark:text-accents-4 mt-3 text-right">
+                            Analysis generated by: {modalRfpDetailData.fitAnalysis.generatedBy}
+                          </p>
                         )}
-                    </div>
+                      </div>
+                    )}
+                  </div>
 
-                    <div className="mt-4">
-                        <button
-                            onClick={() => modalRfpSummary && handleEvaluateSingleRfpWithAi(modalRfpSummary, true)}
-                            disabled={!isCurrentAiProviderConfigured || modalRfpDetailLoading || !modalRfpDetailData || modalRfpIsEvaluating || modalFitAnalysisLoading}
-                            className="w-full px-4 py-2 text-xs font-medium border rounded-md shadow-vercel-sm transition-colors focus:outline-none focus:ring-2 focus:ring-vercel-blue focus:ring-offset-1 dark:focus:ring-offset-dark-accents-1 flex items-center justify-center gap-1.5 bg-white dark:bg-dark-accents-2 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground disabled:opacity-60 disabled:cursor-not-allowed"
-                            title={
-                                !isCurrentAiProviderConfigured ? `${aiSettings.selectedProvider} AI not configured` :
-                                (modalRfpDetailLoading || !modalRfpDetailData) ? "Waiting for full details to load..." :
-                                (modalRfpIsEvaluating || modalFitAnalysisLoading) ? `Evaluating with ${aiSettings.selectedProvider} AI...` : `Re-evaluate with ${aiSettings.selectedProvider} AI using full details`
-                            }
-                        >
-                            <ProviderLogo 
-                                provider={aiSettings.selectedProvider} 
-                                active={isCurrentAiProviderConfigured && !modalRfpIsEvaluating && !modalFitAnalysisLoading} 
-                                disabled={!isCurrentAiProviderConfigured || modalRfpIsEvaluating || modalRfpDetailLoading || !modalRfpDetailData || modalFitAnalysisLoading} 
-                            />
-                            <span>
-                                {(modalRfpIsEvaluating || modalFitAnalysisLoading) ? `AI Updating (Details with ${aiSettings.selectedProvider})...` : `Re-evaluate & Update Analysis with ${aiSettings.selectedProvider} AI`}
-                            </span>
-                        </button>
-                    </div>
-                 </div>
-            </div>
-        </Modal>
-      )}
+                  <div className="mt-4">
+                    <button
+                      onClick={() => modalRfpSummary && handleEvaluateSingleRfpWithAi(modalRfpSummary, true)}
+                      disabled={!isCurrentAiProviderConfigured || modalRfpDetailLoading || !modalRfpDetailData || modalRfpIsEvaluating || modalFitAnalysisLoading}
+                      className="w-full px-4 py-2 text-xs font-medium border rounded-md shadow-vercel-sm transition-colors focus:outline-none focus:ring-2 focus:ring-vercel-blue focus:ring-offset-1 dark:focus:ring-offset-dark-accents-1 flex items-center justify-center gap-1.5 bg-white dark:bg-dark-accents-2 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground disabled:opacity-60 disabled:cursor-not-allowed"
+                      title={
+                        !isCurrentAiProviderConfigured ? `${aiSettings.selectedProvider} AI not configured` :
+                          (modalRfpDetailLoading || !modalRfpDetailData) ? "Waiting for full details to load..." :
+                            (modalRfpIsEvaluating || modalFitAnalysisLoading) ? `Evaluating with ${aiSettings.selectedProvider} AI...` : `Re-evaluate with ${aiSettings.selectedProvider} AI using full details`
+                      }
+                    >
+                      <ProviderLogo
+                        provider={aiSettings.selectedProvider}
+                        active={isCurrentAiProviderConfigured && !modalRfpIsEvaluating && !modalFitAnalysisLoading}
+                        disabled={!isCurrentAiProviderConfigured || modalRfpIsEvaluating || modalRfpDetailLoading || !modalRfpDetailData || modalFitAnalysisLoading}
+                      />
+                      <span>
+                        {(modalRfpIsEvaluating || modalFitAnalysisLoading) ? `AI Updating (Details with ${aiSettings.selectedProvider})...` : `Re-evaluate & Update Analysis with ${aiSettings.selectedProvider} AI`}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Modal>
+          )}
         </div>
       </SignedIn>
     </>

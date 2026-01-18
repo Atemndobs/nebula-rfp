@@ -105,6 +105,14 @@ The Admin view uses a **tabbed interface** to organize settings. When adding new
 
 Invoke skills with `/skill-name` when working on related features:
 
+### Standard Skills (Present in All Projects)
+
+| Skill | Use For |
+|-------|---------|
+| `/learning` | **Explain what Claude built and why** - extracts patterns, alternatives, and next actions from the session. Tailored for Manifesting Generator learning style. |
+
+### Project-Specific Skills
+
 | Skill | Use For |
 |-------|---------|
 | `/rfp-ingest` | Adding RFP data sources (SAM.gov, eMMA) |
@@ -219,3 +227,26 @@ A["Status: Active"]
 ```
 
 Characters that need quoting: `()`, `[]`, `{}`, `:`, `|`, `>`, `<`, `&`, `?`
+
+---
+
+## User Learning Style (Human Design: Manifesting Generator 6/2)
+
+The project owner learns best through:
+
+### ✅ DO
+- **Build and iterate** - small shippable steps, not long theory upfront
+- **Propose options** - show ONE best path + 2 alternatives with trade-offs
+- **Concrete examples** - commands, file structures, minimal working versions
+- **Templates and patterns** - reusable, systemizable code
+- **End with actions** - always provide 1-3 concrete next steps
+
+### ❌ DON'T
+- Dump long theory without immediate use-case
+- Push instant decisions on important choices (allow "sleep on it" time)
+- Give vague recommendations without concrete next actions
+
+### Collaboration Style
+- Be direct - fastest safe route to a working solution
+- Use "respondable" prompts: propose → user chooses → implement
+- User works best with clear requests, then independent execution
