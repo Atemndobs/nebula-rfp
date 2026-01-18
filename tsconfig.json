@@ -26,5 +26,14 @@
     "paths": {
       "@/*" :  ["./*"]
     }
-  }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "vite-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "convex/_generated"
+  ]
 }

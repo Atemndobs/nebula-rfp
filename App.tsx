@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { SignedIn, SignedOut } from '@clerk/clerk-react';
+import { useAction, useMutation, useQuery } from 'convex/react';
+import { api } from './convex/_generated/api';
 import { RFPWithEvaluation, FilterState, SortConfig, EvaluationCriterionKey, RFP, ApiRfp, FetchRfpsResponse, RfpDetail, AppView, RfpSourceCategory, AdminViewProps, NebulaLogixCriterion, CriterionItem, AiSettings, AiProvider, ProviderConfig, KeywordAnalysisResult, RfpFitAnalysis } from './types';
-import { fetchRfps, parseDeadlineFromTitleString, fetchRfpDetail } from './services/rfpDataService';
+import { fetchRfps, parseDeadlineFromTitleString } from './services/rfpDataService';
 import { evaluateRfp, performBatchEvaluation } from './services/evaluationService';
-import { isGeminiAvailable as isGeminiConfiguredViaEnvHook, generateTextWithGemini } from './services/geminiService'; 
+import { isGeminiAvailable as isGeminiConfiguredViaEnvHook, generateTextWithGemini } from './services/geminiService';
 import { generateFitAnalysis } from './services/fitAnalysisService';
 import { NEBULA_LOGIX_CRITERIA_CONFIG, GEMINI_ENV_API_KEY_ERROR_MESSAGE, DEFAULT_AI_CORE_PROMPT_TEMPLATE, DEFAULT_SYSTEM_INSTRUCTIONS, META_PROMPT_FOR_AI_CORE_PROMPT_IMPROVEMENT, DEFAULT_AUTO_REFRESH_INTERVAL_HOURS, MIN_AUTO_REFRESH_INTERVAL_HOURS, AUTO_REFRESH_INTERVAL_KEY, AVAILABLE_AI_PROVIDERS_CONFIG, API_KEY_ERROR_MESSAGE } from './constants';
 import RfpCard from './components/RfpCard';
@@ -11,12 +14,13 @@ import FilterControls from './components/FilterControls';
 import LoadingSpinner from './components/LoadingSpinner';
 import Modal from './components/Modal';
 import ThemeSwitcher from './components/ThemeSwitcher';
-import ViewSwitcher from './components/ViewSwitcher'; 
-import RawDataView from './components/RawDataView'; 
-import AdminView from './components/AdminView'; 
+import ViewSwitcher from './components/ViewSwitcher';
+import RawDataView from './components/RawDataView';
+import AdminView from './components/AdminView';
 import SelectionControls from './components/SelectionControls';
 import { exportRfpsToCsv } from './services/csvExportService';
-import { ProviderLogo } from './components/AiProviderLogos'; // Import ProviderLogo
+import { ProviderLogo } from './components/AiProviderLogos';
+import { AuthButtons } from './components/AuthButtons';
 
 type Theme = 'light' | 'dark';
 
@@ -287,12 +291,99 @@ const App: React.FC = () => {
   const initialSortConfig: SortConfig = { key: 'score', direction: 'descending' };
   const [sortConfig, setSortConfig] = useState<SortConfig>(initialSortConfig);
 
+  // Source filter: 'all', 'sam.gov', 'rfpmart', 'csv'
+  type SourceFilterType = 'all' | 'sam.gov' | 'rfpmart' | 'csv';
+  const [sourceFilter, setSourceFilter] = useState<SourceFilterType>('all');
+
   const [modalRfpSummary, setModalRfpSummary] = useState<RFPWithEvaluation | null>(null);
   const [modalRfpDetailData, setModalRfpDetailData] = useState<RfpDetail | null>(null);
   const [modalRfpDetailLoading, setModalRfpDetailLoading] = useState<boolean>(false);
   const [modalRfpDetailError, setModalRfpDetailError] = useState<string | null>(null);
   const [modalFitAnalysisLoading, setModalFitAnalysisLoading] = useState<boolean>(false);
 
+  // Convex action for scraping RFP details directly (no crawler API needed)
+  const scrapeRfpDetail = useAction(api.ingestion.scraper.scrapeRfpDetail);
+
+  // Fetch opportunities with evaluations from Convex database (SAM.gov, RFPMart CSV, etc.)
+  // Shows all opportunities - use "Good Fits" filter in UI to show only eligible ones
+  const convexOpportunities = useQuery(api.opportunities.listWithEvaluations, {
+    limit: 100,
+  });
+
+  // Mutation to evaluate pending opportunities
+  const evaluateAllPending = useMutation(api.eligibilityRules.evaluateAllPending);
+
+  // Transform Convex opportunities to RFPWithEvaluation format (including eligibility evaluation)
+  const convexRfps = useMemo((): RFPWithEvaluation[] => {
+    if (!convexOpportunities?.items) return [];
+
+    return convexOpportunities.items.map((opp): RFPWithEvaluation => {
+      // Format dueDate from timestamp to YYYY-MM-DD string
+      const dueDate = opp.dueDate ? new Date(opp.dueDate).toISOString().split('T')[0] : null;
+
+      // Transform eligibility evaluation to frontend format
+      const evaluation = opp.evaluation ? {
+        isFit: opp.evaluation.isGoodFit,
+        score: opp.evaluation.totalScore,
+        maxScore: opp.evaluation.maxScore,
+        // Empty criteriaResults - eligibility rules don't map to frontend criteria
+        criteriaResults: {} as Record<EvaluationCriterionKey, { met: boolean; details: string }>,
+        reasoning: `${opp.evaluation.eligibilityStatus}: ${opp.evaluation.isGoodFit ? 'Eligible' :
+          opp.evaluation.eligibilityStatus === 'PARTNER_REQUIRED' ? 'May need partner' : 'Not eligible'}`,
+        // Pass eligibility data for separate display in RfpCard
+        eligibility: {
+          status: opp.evaluation.eligibilityStatus as 'ELIGIBLE' | 'PARTNER_REQUIRED' | 'REJECTED',
+          reasons: (opp.evaluation.reasons || []).map(r => ({
+            ruleId: r.ruleId as any,
+            ruleName: r.ruleName,
+            outcome: r.outcome as 'pass' | 'fail' | 'flag',
+            severity: r.severity as 'hard' | 'soft',
+            evidence: r.evidence,
+            keywords: r.keywords || [],
+          })),
+          evidenceSnippets: opp.evaluation.evidenceSnippets || [],
+          assessedAt: opp.evaluation.evaluatedAt || Date.now(),
+          assessedBy: 'system' as const,
+          rulesVersion: opp.evaluation.rulesVersion || '1.0',
+        },
+      } : undefined;
+
+      return {
+        id: opp._id,
+        title: opp.title,
+        summary: opp.fullDescription || '',
+        deadline: dueDate,
+        url: opp.sourceUrl,
+        source: opp.source,
+        location: opp.location?.state || opp.location?.city || undefined,
+        category: opp.categories?.[0] || undefined,
+        apiPostedDate: opp.postedDate ? new Date(opp.postedDate).toISOString().split('T')[0] : undefined,
+        apiExpiryDate: dueDate || undefined,
+        evaluation,
+      };
+    });
+  }, [convexOpportunities]);
+
+  // Auto-evaluate unevaluated opportunities when they're loaded
+  const [hasTriggeredEvaluation, setHasTriggeredEvaluation] = useState(false);
+  useEffect(() => {
+    // Only trigger once, and only if there are unevaluated opportunities
+    if (
+      convexOpportunities &&
+      convexOpportunities.unevaluated > 0 &&
+      !hasTriggeredEvaluation
+    ) {
+      console.log(`Auto-evaluating ${convexOpportunities.unevaluated} unevaluated opportunities...`);
+      setHasTriggeredEvaluation(true);
+      evaluateAllPending({ limit: 50 })
+        .then((result) => {
+          console.log(`Evaluated ${result.evaluated} opportunities`);
+        })
+        .catch((err) => {
+          console.error('Auto-evaluation failed:', err);
+        });
+    }
+  }, [convexOpportunities, hasTriggeredEvaluation, evaluateAllPending]);
 
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => {
     const loadedSettings = loadFromLocalStorage<AiSettings>('aiSettings', getDefaultAiSettings());
@@ -748,7 +839,28 @@ const App: React.FC = () => {
     }
 
     try {
-      const detailData = await fetchRfpDetail(rfp.url); 
+      // Use Convex scraper action for direct page scraping (no external API needed)
+      const scrapedData = await scrapeRfpDetail({ url: rfp.url });
+
+      // Map scraped data to RfpDetail format
+      const detailData: RfpDetail = {
+        id: scrapedData.id,
+        title: scrapedData.title,
+        description: scrapedData.description,
+        scope_of_service: scrapedData.scope_of_service || "Not specified",
+        posted_date: scrapedData.posted_date || "Not specified",
+        expiry_date: scrapedData.expiry_date || "Not specified",
+        question_deadline: scrapedData.question_deadline || "Not specified",
+        location: scrapedData.location || "Not specified",
+        budget: scrapedData.budget || "Not specified",
+        eligibility: scrapedData.eligibility || "Not specified",
+        work_performance: scrapedData.work_performance || "Not specified",
+        category: scrapedData.category || "Not specified",
+        country: scrapedData.country || "Not specified",
+        state: scrapedData.state || "Not specified",
+        url: scrapedData.url,
+      };
+
       setModalRfpDetailData(detailData);
       setModalRfpDetailLoading(false); // Base details loaded
 
@@ -756,9 +868,9 @@ const App: React.FC = () => {
       setModalFitAnalysisLoading(true);
       try {
         const fitAnalysisResult = await generateFitAnalysis(
-          detailData, 
-          currentCriteriaConfig, 
-          aiSettings, 
+          detailData,
+          currentCriteriaConfig,
+          aiSettings,
           isGeminiConfiguredViaEnv,
           rfp.evaluation // Pass existing evaluation from list view
         );
@@ -771,11 +883,12 @@ const App: React.FC = () => {
       }
 
     } catch (e) {
-      setModalRfpDetailError(e instanceof Error ? e.message : "Failed to load RFP details.");
+      console.error("Error scraping RFP details:", e);
+      setModalRfpDetailError(e instanceof Error ? e.message : "Failed to load RFP details. The page may not be accessible.");
       setModalRfpDetailLoading(false);
       setModalFitAnalysisLoading(false);
     }
-  }, [currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv]); 
+  }, [currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv, scrapeRfpDetail]); 
 
   const handleViewDetailsByIdInRawView = useCallback((rfpId: string) => {
     const rawRfp = rawApiData.find(r => r.id === rfpId);
@@ -815,20 +928,31 @@ const App: React.FC = () => {
   };
 
   const displayedRfps = useMemo(() => {
-    const filtered = [...allRfps]
+    // Combine RFPs from external API and Convex database
+    const combinedRfps = [...allRfps, ...convexRfps];
+
+    const filtered = combinedRfps
       .filter(rfp => {
         if (filters.showOnlyFit) {
             if (!rfp.evaluation || !rfp.evaluation.isFit) return false;
         }
-        
+
+        // Source filter
+        if (sourceFilter !== 'all') {
+          const src = (rfp.source || '').toLowerCase();
+          if (sourceFilter === 'sam.gov' && !src.includes('sam.gov')) return false;
+          if (sourceFilter === 'rfpmart' && !src.includes('rfpmart')) return false;
+          if (sourceFilter === 'csv' && !(src.includes('csv') || src.includes('upload'))) return false;
+        }
+
         const keywordMatch = filters.keyword.toLowerCase() === '' ||
           rfp.title.toLowerCase().includes(filters.keyword.toLowerCase()) ||
           rfp.summary.toLowerCase().includes(filters.keyword.toLowerCase());
-        
-        const deadlineDate = rfp.deadline ? new Date(rfp.deadline + 'T00:00:00') : null; 
+
+        const deadlineDate = rfp.deadline ? new Date(rfp.deadline + 'T00:00:00') : null;
         const filterMaxDeadlineDate = filters.maxDeadline ? new Date(filters.maxDeadline + 'T00:00:00') : null;
         const deadlineMatch = !filterMaxDeadlineDate || (deadlineDate && deadlineDate <= filterMaxDeadlineDate);
-        
+
         return keywordMatch && deadlineMatch;
       });
     
@@ -869,7 +993,7 @@ const App: React.FC = () => {
         return titleA.localeCompare(titleB);
       });
       return sorted;
-  }, [allRfps, filters, sortConfig]);
+  }, [allRfps, convexRfps, filters, sortConfig, sourceFilter]);
 
   const handleRfpSelectionToggle = useCallback((rfpId: string) => {
     setSelectedRfpIds(prev => {
@@ -1012,20 +1136,147 @@ const App: React.FC = () => {
   const modalRfpIsEvaluating = modalRfpSummary?.isEvaluating || false;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-      <header className="mb-10 pb-8 border-b border-accents-2 dark:border-dark-accents-2">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex-1 text-center sm:text-left flex items-center">
-                <div>
-                    <h1 className="text-3xl sm:text-4xl font-bold text-geist-foreground dark:text-dark-geist-foreground">RFP Discovery Platform</h1>
-                    <p className="text-md text-geist-secondary dark:text-dark-geist-secondary mt-1">{pageSubtitle}</p>
+    <>
+      {/* Signed Out - Show Login Page */}
+      <SignedOut>
+        <div className="min-h-screen relative overflow-hidden bg-black">
+          {/* Subtle noise texture */}
+          <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
+
+          {/* Gradient orbs - grayscale */}
+          <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-white/[0.03] blur-3xl" />
+          <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-white/[0.02] blur-3xl" />
+
+          {/* Content */}
+          <div className="relative z-10 min-h-screen flex flex-col">
+            {/* Nav */}
+            <nav className="flex items-center justify-between px-6 py-6 lg:px-16">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
+                  <svg className="w-5 h-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <span className="text-lg font-medium text-white tracking-tight">RFP Discovery</span>
+              </div>
+              <AuthButtons />
+            </nav>
+
+            {/* Hero */}
+            <main className="flex-1 flex items-center justify-center px-6 lg:px-16">
+              <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+                {/* Left side - Text */}
+                <div className="text-center lg:text-left">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-8">
+                    <span className="w-1.5 h-1.5 bg-white rounded-full" />
+                    <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">Powered by AI</span>
+                  </div>
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-6 tracking-tight">
+                    Win Government
+                    <span className="block text-gray-500">Contracts Faster</span>
+                  </h1>
+                  <p className="text-base sm:text-lg text-gray-400 mb-10 max-w-md leading-relaxed">
+                    Discover and evaluate public-sector RFP opportunities.
+                    AI-powered insights from discovery to submission.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                    <AuthButtons />
+                  </div>
+                </div>
+
+                {/* Right side - Glass cards */}
+                <div className="hidden lg:grid grid-cols-2 gap-3">
+                  {/* Card 1 */}
+                  <div className="group p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-500">
+                    <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center mb-4 group-hover:bg-white/[0.08] transition-colors">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-medium text-white mb-1.5">Discovery</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">Multi-source ingestion from SAM.gov & RFPMart</p>
+                  </div>
+
+                  {/* Card 2 */}
+                  <div className="group p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-500 mt-6">
+                    <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center mb-4 group-hover:bg-white/[0.08] transition-colors">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-medium text-white mb-1.5">Eligibility</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">7 hard filters to qualify opportunities instantly</p>
+                  </div>
+
+                  {/* Card 3 */}
+                  <div className="group p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-500">
+                    <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center mb-4 group-hover:bg-white/[0.08] transition-colors">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-medium text-white mb-1.5">Scoring</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">6-dimension AI scoring for fit analysis</p>
+                  </div>
+
+                  {/* Card 4 */}
+                  <div className="group p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-500 mt-6">
+                    <div className="w-10 h-10 rounded-lg bg-white/[0.05] flex items-center justify-center mb-4 group-hover:bg-white/[0.08] transition-colors">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-medium text-white mb-1.5">Briefs</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">Generate go/no-go decision documents</p>
+                  </div>
+                </div>
+              </div>
+            </main>
+
+            {/* Footer */}
+            <footer className="px-6 py-8 lg:px-16">
+              <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-8 text-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-semibold text-white">500+</span>
+                  <span className="text-xs text-gray-600">RFPs</span>
+                </div>
+                <div className="w-px h-4 bg-white/10" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-semibold text-white">7</span>
+                  <span className="text-xs text-gray-600">Filters</span>
+                </div>
+                <div className="w-px h-4 bg-white/10" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-semibold text-white">6</span>
+                  <span className="text-xs text-gray-600">Dimensions</span>
+                </div>
+                <div className="w-px h-4 bg-white/10" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600">Real-time sync</span>
+                </div>
+              </div>
+            </footer>
+          </div>
+        </div>
+      </SignedOut>
+
+      {/* Signed In - Show App */}
+      <SignedIn>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <header className="mb-10 pb-8 border-b border-accents-2 dark:border-dark-accents-2">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex-1 text-center sm:text-left flex items-center">
+                    <div>
+                        <h1 className="text-3xl sm:text-4xl font-bold text-geist-foreground dark:text-dark-geist-foreground">RFP Discovery Platform</h1>
+                        <p className="text-md text-geist-secondary dark:text-dark-geist-secondary mt-1">{pageSubtitle}</p>
+                    </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                    <ViewSwitcher currentView={currentView} onSwitchView={handleViewSwitch} />
+                    <ThemeSwitcher currentTheme={theme} toggleTheme={toggleTheme} />
+                    <AuthButtons />
                 </div>
             </div>
-            <div className="flex items-center space-x-3">
-                <ViewSwitcher currentView={currentView} onSwitchView={handleViewSwitch} />
-                <ThemeSwitcher currentTheme={theme} toggleTheme={toggleTheme} />
-            </div>
-        </div>
         {(apiFetchFailedWarning && currentView !== 'admin') && (
            <div className="mt-6 p-4 bg-orange-50 dark:bg-orange-900 dark:bg-opacity-30 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-200 rounded-md shadow-vercel-sm" role="alert">
             <p className="font-semibold">API Alert</p>
@@ -1074,21 +1325,40 @@ const App: React.FC = () => {
           />
 
           <div className="flex flex-col sm:flex-row justify-between items-center my-6 gap-4">
-            <p className="text-sm text-geist-secondary dark:text-dark-geist-secondary">
-                { isLoading ? 'Loading...' : `Showing ${displayedRfps.length} of ${allRfps.length} processed RFPs` }
-                {selectedRfpIds.size > 0 && ` (${selectedRfpIds.size} selected)`}
-                {allRfps.length > 0 && allRfps[0]?.source.includes('Mock') && !apiFetchFailedWarning && ` (Using Mock Data for ${currentRfpSourceCategory})`}
-            </p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <p className="text-sm text-geist-secondary dark:text-dark-geist-secondary">
+                  { isLoading ? 'Loading...' : `Showing ${displayedRfps.length} of ${allRfps.length + convexRfps.length} RFPs` }
+                  {selectedRfpIds.size > 0 && ` (${selectedRfpIds.size} selected)`}
+                  {allRfps.length > 0 && allRfps[0]?.source.includes('Mock') && !apiFetchFailedWarning && ` (Using Mock Data for ${currentRfpSourceCategory})`}
+              </p>
+              {/* Source Filter Chips */}
+              <div className="flex items-center gap-1 p-0.5 bg-accents-1 dark:bg-dark-accents-1 border border-accents-2 dark:border-dark-accents-2 rounded-md">
+                {(['all', 'sam.gov', 'rfpmart', 'csv'] as const).map((src) => (
+                  <button
+                    key={src}
+                    onClick={() => setSourceFilter(src)}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                      sourceFilter === src
+                        ? 'bg-white dark:bg-dark-accents-2 text-geist-foreground dark:text-dark-geist-foreground shadow-sm'
+                        : 'text-accents-5 dark:text-accents-4 hover:bg-accents-2 dark:hover:bg-dark-accents-2'
+                    }`}
+                    aria-pressed={sourceFilter === src}
+                  >
+                    {src === 'all' ? 'All' : src === 'sam.gov' ? 'SAM.gov' : src === 'rfpmart' ? 'RFPMart' : 'CSV'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex space-x-2">
-                <button 
-                  onClick={() => handleSort('score')} 
+                <button
+                  onClick={() => handleSort('score')}
                   className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border border-accents-2 dark:border-dark-accents-2 rounded-md hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground transition-colors"
                   aria-label={`Sort by score, current direction: ${sortConfig.key === 'score' ? sortConfig.direction : 'none'}`}
                 >
                   Score {renderSortIcon('score')}
                 </button>
-                <button 
-                  onClick={() => handleSort('deadlineDate')} 
+                <button
+                  onClick={() => handleSort('deadlineDate')}
                   className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border border-accents-2 dark:border-dark-accents-2 rounded-md hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground transition-colors"
                   aria-label={`Sort by deadline, current direction: ${sortConfig.key === 'deadlineDate' ? sortConfig.direction : 'none'}`}
                 >
@@ -1284,7 +1554,9 @@ const App: React.FC = () => {
             </div>
         </Modal>
       )}
-    </div>
+        </div>
+      </SignedIn>
+    </>
   );
 };
 

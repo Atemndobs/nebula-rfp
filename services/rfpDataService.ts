@@ -141,6 +141,8 @@ export const parseDeadlineFromTitleString = (titleStr: string): string | null =>
 };
 
 const FASTAPI_LIST_BASE_URL = 'https://fastapi.curator.atemkeng.eu/api/v1/rfp/rfps_by_url';
+// Note: Detail fetching now uses Convex scraper action (see fetchRfpDetailViaConvex)
+// Keeping this for fallback if needed
 const FASTAPI_DETAIL_BASE_URL = 'https://fastapi.curator.atemkeng.eu/api/v1/rfp/rfp_id';
 
 const RFP_SOURCE_URLS: Record<RfpSourceCategory, string> = {
