@@ -1,35 +1,77 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { KeywordAnalysisResult, RfpDetail, RfpFitAnalysis, EvaluationCriterionKey, NebulaLogixCriterion, EvaluationResult, AiSettings, CriterionItem } from '../types';
+import { KeywordAnalysisResult, RfpDetail, RfpFitAnalysis, EvaluationCriterionKey, NebulaLogixCriterion, EvaluationResult, AiSettings, CriterionItem, AiProvider } from '../types';
 import { GEMINI_ENV_API_KEY_ERROR_MESSAGE } from '../constants';
 
-const API_KEY = process.env.API_KEY;
+// Storage key for API settings (must match ApiKeyManager)
+const API_SETTINGS_STORAGE_KEY = "rfp_ai_api_settings";
 
-let ai: GoogleGenAI | null = null;
-if (API_KEY) {
-  ai = new GoogleGenAI({ apiKey: API_KEY });
+// Get API key dynamically - checks UI settings first, then env variable
+function getGeminiApiKey(): string | undefined {
+  try {
+    const stored = localStorage.getItem(API_SETTINGS_STORAGE_KEY);
+    if (stored) {
+      const settings = JSON.parse(stored);
+      // Support both old format (settings[provider]) and new format (settings.providers[provider])
+      const providerSettings = settings.providers?.[AiProvider.GEMINI] || settings[AiProvider.GEMINI];
+      if (providerSettings?.apiKey) {
+        return providerSettings.apiKey;
+      }
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+  // Fallback to env variable
+  return import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 }
 
-export const isGeminiAvailable = (): boolean => !!ai;
+// Get model dynamically - checks UI settings first, then defaults
+function getGeminiModel(): string {
+  try {
+    const stored = localStorage.getItem(API_SETTINGS_STORAGE_KEY);
+    if (stored) {
+      const settings = JSON.parse(stored);
+      // Support both old format and new format
+      const providerSettings = settings.providers?.[AiProvider.GEMINI] || settings[AiProvider.GEMINI];
+      if (providerSettings?.model) {
+        return providerSettings.model;
+      }
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+  return "gemini-2.0-flash";
+}
+
+// Create AI client dynamically
+function getAiClient(): GoogleGenAI | null {
+  const apiKey = getGeminiApiKey();
+  if (apiKey) {
+    return new GoogleGenAI({ apiKey });
+  }
+  return null;
+}
+
+export const isGeminiAvailable = (): boolean => !!getGeminiApiKey();
 
 const getGeminiErrorFeedback = (error: any): string => {
   if (error.message && error.message.toLowerCase().includes("api key not valid")) {
-    return "Gemini API Key is invalid. Please ensure it's correctly configured in your environment (process.env.API_KEY).";
+    return "Gemini API Key is invalid. Please configure a valid key in Admin > AI Provider Settings.";
   }
-  // Attempt to access nested error details for "API_KEY_INVALID"
-  // This structure can vary, so check defensively
   if (error.error && error.error.details && Array.isArray(error.error.details)) {
     const apiKeyInvalidDetail = error.error.details.find(
       (d: any) => d.reason === "API_KEY_INVALID" || (d['@type'] && d['@type'].includes('ErrorInfo') && d.reason === 'API_KEY_INVALID')
     );
     if (apiKeyInvalidDetail) {
-      return "Gemini API Key is invalid (Reason: API_KEY_INVALID). Please check your environment configuration (process.env.API_KEY).";
+      return "Gemini API Key is invalid. Please configure a valid key in Admin > AI Provider Settings.";
     }
   }
   if (error.message && error.message.toLowerCase().includes("quota")) {
     return "Gemini API request failed due to quota issues. Please check your quota limits.";
   }
-  // Generic error if specific checks don't match
+  if (error.message && error.message.toLowerCase().includes("not found")) {
+    return `Model not found. Please select a valid model in Admin > AI Provider Settings.`;
+  }
   return `Gemini API error: ${error.message || 'Unknown error'}. Check console for details.`;
 };
 
@@ -40,12 +82,13 @@ export const analyzeTextWithGemini = async (
   corePromptTemplate: string, // The main prompt asking for JSON
   systemInstruction?: string  // Specific behavioral instruction for the criterion
 ): Promise<KeywordAnalysisResult> => {
+  const ai = getAiClient();
   if (!ai) {
     console.error(GEMINI_ENV_API_KEY_ERROR_MESSAGE);
-    return { foundKeywords: [], isMatch: false, error: GEMINI_ENV_API_KEY_ERROR_MESSAGE };
+    return { foundKeywords: [], isMatch: false, error: "Gemini API Key not configured. Please set it in Admin > AI Provider Settings." };
   }
 
-  const model = 'gemini-2.5-flash-preview-04-17';
+  const model = getGeminiModel();
   
   let populatedPrompt = corePromptTemplate.replace("{{TEXT_TO_ANALYZE}}", text);
   populatedPrompt = populatedPrompt.replace("{{TARGET_KEYWORDS_LIST}}", targetKeywords.join(', '));
@@ -89,12 +132,13 @@ export const generateTextWithGemini = async (
   prompt: string,
   systemInstruction?: string
 ): Promise<{ text: string | null; error?: string }> => {
+  const ai = getAiClient();
   if (!ai) {
     console.error(GEMINI_ENV_API_KEY_ERROR_MESSAGE);
-    return { text: null, error: GEMINI_ENV_API_KEY_ERROR_MESSAGE };
+    return { text: null, error: "Gemini API Key not configured. Please set it in Admin > AI Provider Settings." };
   }
 
-  const model = 'gemini-2.5-flash-preview-04-17';
+  const model = getGeminiModel();
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
@@ -146,12 +190,13 @@ export const generateRfpFitAnalysisWithGemini = async (
   aiSettings: AiSettings, // For system instructions or future model choices
   existingEvaluation?: EvaluationResult // Optional existing evaluation for context
 ): Promise<RfpFitAnalysis> => {
+  const ai = getAiClient();
   if (!ai) {
     console.error(GEMINI_ENV_API_KEY_ERROR_MESSAGE);
-    return { analysisError: GEMINI_ENV_API_KEY_ERROR_MESSAGE, generatedBy: 'AI' };
+    return { analysisError: "Gemini API Key not configured. Please set it in Admin > AI Provider Settings.", generatedBy: 'AI' };
   }
 
-  const model = 'gemini-2.5-flash-preview-04-17';
+  const model = getGeminiModel();
   const criteriaSummary = generateRfpCriteriaSummary(criteriaConfig); // This now only lists enabled items
 
   const rfpDataString = `

@@ -5,16 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:backend": "convex dev",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:backend\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "convex:deploy": "convex deploy"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.59.3",
+    "@google/genai": "^1.1.0",
+    "convex": "^1.31.5",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@google/genai": "^1.1.0"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
   }

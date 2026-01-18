@@ -272,13 +272,17 @@ interface AiProviderConstantConfig {
 
 export const AVAILABLE_AI_PROVIDERS_CONFIG: Record<AiProvider, AiProviderConstantConfig> = {
   [AiProvider.GEMINI]: {
-    name: "Google Gemini (Text Model via Env API_KEY)",
-    defaultModel: "gemini-2.5-flash-preview-04-17",
-    // Only the designated model for text tasks per guidelines.
-    // Other models (e.g., image generation) or dynamic listing/costs are not supported here.
-    models: ["gemini-2.5-flash-preview-04-17"], 
-    requiresApiKeyInUI: false, 
-    apiKeyEnvVar: "API_KEY", 
+    name: "Google Gemini",
+    defaultModel: "gemini-2.0-flash",
+    models: [
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+      "gemini-1.5-flash-8b",
+    ],
+    requiresApiKeyInUI: true,
+    apiKeyEnvVar: "VITE_GEMINI_API_KEY",
   },
   [AiProvider.OPENAI]: {
     name: "OpenAI",

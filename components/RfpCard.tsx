@@ -1,10 +1,10 @@
 
 
 import React from 'react';
-import { RFPWithEvaluation, EvaluationCriterionKey, CriterionEvaluationResult, RfpCardProps, AiProvider } from '../types';
+import { RFPWithEvaluation, EvaluationCriterionKey, CriterionEvaluationResult, RfpCardProps, AiProvider, EligibilityReason } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import { NEBULA_LOGIX_CRITERIA_CONFIG } from '../constants';
-import { ProviderLogo } from './AiProviderLogos'; // Import the new ProviderLogo
+import { ProviderLogo } from './AiProviderLogos';
 
 const TickIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
@@ -25,11 +25,11 @@ const CriterionDisplay: React.FC<{ criterionKey: EvaluationCriterionKey, result?
   const config = NEBULA_LOGIX_CRITERIA_CONFIG[criterionKey];
   if (!config) {
     console.warn(`RfpCard: Missing config for criterion key: ${criterionKey}`);
-    return null; 
+    return null;
   }
   return (
-    <div 
-      className={`p-2 rounded-md text-xs flex items-center border ${result.met ? 'bg-green-50 dark:bg-green-900 dark:bg-opacity-20 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300'}`} 
+    <div
+      className={`p-2 rounded-md text-xs flex items-center border ${result.met ? 'bg-green-50 dark:bg-green-900 dark:bg-opacity-20 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300'}`}
       title={result.details || config.description}
       role="listitem"
     >
@@ -47,8 +47,91 @@ const CriterionDisplay: React.FC<{ criterionKey: EvaluationCriterionKey, result?
   );
 };
 
+// Display component for eligibility rules (from Convex evaluations)
+const EligibilityRuleDisplay: React.FC<{ reason: EligibilityReason }> = ({ reason }) => {
+  const isPassed = reason.outcome === 'pass';
+  const isFlagged = reason.outcome === 'flag';
+
+  // Human-readable rule names
+  const ruleNames: Record<string, string> = {
+    'us_entity_required': 'US Entity',
+    'us_persons_only': 'US Persons',
+    'us_organization': 'US Organization', // Legacy
+    'security_clearance': 'Security Clearance',
+    'set_aside': 'Set-Aside',
+    'onsite_constraints': 'Onsite/Remote',
+    'minimum_time': 'Response Time',
+    'out_of_scope': 'Scope Match',
+    'category_check': 'Category',
+  };
+
+  const displayName = ruleNames[reason.ruleId] || reason.ruleName;
+
+  return (
+    <div
+      className={`p-2 rounded-md text-xs flex items-center border ${
+        isPassed
+          ? 'bg-green-50 dark:bg-green-900 dark:bg-opacity-20 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300'
+          : isFlagged
+            ? 'bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 border-yellow-200 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300'
+            : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300'
+      }`}
+      title={reason.evidence || reason.ruleName}
+      role="listitem"
+    >
+      {isPassed ? (
+        <span className="inline-flex items-center justify-center w-4 h-4 mr-1.5 rounded-full bg-green-500 text-white flex-shrink-0" aria-label="Passed">
+          <TickIcon />
+        </span>
+      ) : isFlagged ? (
+        <span className="inline-flex items-center justify-center w-4 h-4 mr-1.5 rounded-full bg-yellow-500 text-white flex-shrink-0" aria-label="Flagged">
+          !
+        </span>
+      ) : (
+        <span className="inline-flex items-center justify-center w-4 h-4 mr-1.5 rounded-full border border-red-500 text-red-500 flex-shrink-0" aria-label="Failed">
+          <CrossIcon />
+        </span>
+      )}
+      <span className="font-medium truncate" title={displayName}>{displayName}</span>
+      {reason.severity === 'hard' && !isPassed && (
+        <span className="ml-1 text-[10px] opacity-75">(hard)</span>
+      )}
+    </div>
+  );
+};
+
 const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onToggleSelection, onEvaluateSingleWithAi, isCurrentAiProviderConfigured, selectedAiProvider }) => {
-  const { id, title, summary, deadline, url, evaluation, isEvaluating, location, category } = rfp;
+  const { id, title, summary, deadline, url, evaluation, isEvaluating, location, category, source } = rfp;
+
+  // Map source to display-friendly name and color
+  const getSourceBadge = (src?: string) => {
+    if (!src) return null;
+
+    const lower = src.toLowerCase();
+
+    // Pattern matching for flexible source detection
+    if (lower.includes('sam.gov') || lower === 'sam.gov') {
+      return { label: 'SAM.gov', color: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700' };
+    }
+    if (lower.includes('rfpmart') && (lower.includes('csv') || lower.includes('upload'))) {
+      return { label: 'CSV', color: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-700' };
+    }
+    if (lower.includes('rfpmart')) {
+      return { label: 'RFPMart', color: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700' };
+    }
+    if (lower.includes('emma') || lower.includes('emma')) {
+      return { label: 'eMMA', color: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-700' };
+    }
+    if (lower.includes('csv') || lower.includes('upload')) {
+      return { label: 'CSV', color: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900 dark:text-indigo-300 dark:border-indigo-700' };
+    }
+
+    // Fallback: use raw source but truncate if too long
+    const displayLabel = src.length > 12 ? src.substring(0, 10) + '...' : src;
+    return { label: displayLabel, color: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600' };
+  };
+
+  const sourceBadge = getSourceBadge(source);
 
   const getScoreClasses = (score: number, maxScore: number): string => {
     if (maxScore === 0) return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600'; // Neutral if no criteria
@@ -100,10 +183,25 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
           <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline" onClick={(e) => e.stopPropagation()}>{title}</a>
         </h3>
         {evaluation && !isEvaluating && (
-          <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getScoreClasses(evaluation.score, evaluation.maxScore)}`} aria-label={`Score: ${evaluation.score} out of ${evaluation.maxScore}`}>
-            Score: {evaluation.score}/{evaluation.maxScore > 0 ? evaluation.maxScore : '-'}
-            {evaluation.aiProviderUsed && <span className="ml-1 text-xs opacity-75">({evaluation.aiProviderUsed})</span>}
-          </div>
+          evaluation.eligibility ? (
+            // Show eligibility status badge for Convex evaluations
+            <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+              evaluation.eligibility.status === 'ELIGIBLE'
+                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
+                : evaluation.eligibility.status === 'PARTNER_REQUIRED'
+                  ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700'
+                  : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
+            }`} aria-label={`Eligibility: ${evaluation.eligibility.status}`}>
+              {evaluation.eligibility.status === 'ELIGIBLE' ? 'Eligible' :
+               evaluation.eligibility.status === 'PARTNER_REQUIRED' ? 'Partner Needed' : 'Not Eligible'}
+            </div>
+          ) : (
+            // Show score badge for AI/manual evaluations
+            <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getScoreClasses(evaluation.score, evaluation.maxScore)}`} aria-label={`Score: ${evaluation.score} out of ${evaluation.maxScore}`}>
+              Score: {evaluation.score}/{evaluation.maxScore > 0 ? evaluation.maxScore : '-'}
+              {evaluation.aiProviderUsed && <span className="ml-1 text-xs opacity-75">({evaluation.aiProviderUsed})</span>}
+            </div>
+          )
         )}
          {isEvaluating && (
           <div className="px-2.5 py-1">
@@ -143,7 +241,16 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
               {evaluation.reasoning}
             </p>
           </div>
-          {evaluatedCriterionKeys.length > 0 ? (
+
+          {/* Display eligibility rules from Convex evaluations */}
+          {evaluation.eligibility && evaluation.eligibility.reasons.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4 pl-8" role="list" aria-label="Eligibility Rules">
+              {evaluation.eligibility.reasons.map((reason, idx) => (
+                <EligibilityRuleDisplay key={`${reason.ruleId}-${idx}`} reason={reason} />
+              ))}
+            </div>
+          ) : evaluatedCriterionKeys.length > 0 ? (
+            /* Display traditional criteria for non-Convex evaluations */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4 pl-8" role="list" aria-label="Evaluation Criteria">
               {evaluatedCriterionKeys.map(key => {
                 const result = evaluation.criteriaResults[key];
@@ -154,34 +261,49 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
               })}
             </div>
           ) : (
-             !isEvaluating && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">No criteria effectively enabled for this evaluation.</p>
+             !isEvaluating && !evaluation.eligibility && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">No criteria effectively enabled for this evaluation.</p>
           )}
         </>
       )}
-      {evaluation && Object.keys(evaluation.criteriaResults).length === 0 && !isEvaluating && (
+      {evaluation && !evaluation.eligibility && Object.keys(evaluation.criteriaResults).length === 0 && !isEvaluating && (
            <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">Evaluation data available, but no criteria were effectively enabled or met.</p>
       )}
 
 
-      <div className="mt-6 flex justify-end items-center gap-2">
-         <button
-          onClick={(e) => { e.stopPropagation(); onEvaluateSingleWithAi(rfp);}}
-          className={secondaryButtonClasses}
-          disabled={!isCurrentAiProviderConfigured || isEvaluating}
-          title={!isCurrentAiProviderConfigured ? `${selectedAiProvider} not configured` : (isEvaluating ? "Evaluating..." : `Re-evaluate with ${selectedAiProvider}`)}
-          aria-label={`Re-evaluate with ${selectedAiProvider} for RFP: ${title}`}
-        >
-          <ProviderLogo provider={selectedAiProvider} active={isCurrentAiProviderConfigured && !isEvaluating} disabled={!isCurrentAiProviderConfigured || isEvaluating} />
-          <span>{isEvaluating ? `${selectedAiProvider} ...` : `${selectedAiProvider} Eval`}</span>
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onViewDetails(rfp);}}
-          className={primaryButtonClasses}
-          aria-label={`View details for RFP: ${title}`}
-          disabled={isEvaluating}
-        >
-          View Details
-        </button>
+      <div className="mt-6 flex justify-between items-center">
+        {/* Source Badge */}
+        <div className="flex items-center gap-2">
+          {sourceBadge && (
+            <span
+              className={`px-2.5 py-1 text-xs font-medium rounded-full border ${sourceBadge.color}`}
+              title={`Source: ${sourceBadge.label}`}
+            >
+              {sourceBadge.label}
+            </span>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEvaluateSingleWithAi(rfp);}}
+            className={secondaryButtonClasses}
+            disabled={!isCurrentAiProviderConfigured || isEvaluating}
+            title={!isCurrentAiProviderConfigured ? `${selectedAiProvider} not configured` : (isEvaluating ? "Evaluating..." : `Re-evaluate with ${selectedAiProvider}`)}
+            aria-label={`Re-evaluate with ${selectedAiProvider} for RFP: ${title}`}
+          >
+            <ProviderLogo provider={selectedAiProvider} active={isCurrentAiProviderConfigured && !isEvaluating} disabled={!isCurrentAiProviderConfigured || isEvaluating} />
+            <span>{isEvaluating ? `${selectedAiProvider} ...` : `${selectedAiProvider} Eval`}</span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onViewDetails(rfp);}}
+            className={primaryButtonClasses}
+            aria-label={`View details for RFP: ${title}`}
+            disabled={isEvaluating}
+          >
+            View Details
+          </button>
+        </div>
       </div>
     </article>
   );

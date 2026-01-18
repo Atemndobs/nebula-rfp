@@ -69,14 +69,16 @@ export interface CriterionEvaluationResult {
 }
 
 export interface EvaluationResult {
-  isFit: boolean; 
-  score: number; 
-  maxScore: number; 
+  isFit: boolean;
+  score: number;
+  maxScore: number;
   criteriaResults: Record<EvaluationCriterionKey, CriterionEvaluationResult>;
-  reasoning?: string; 
+  reasoning?: string;
   aiAnalysis?: Record<string, any>; // Generalized from geminiAnalysis
   aiProviderUsed?: AiProvider; // Track which provider was used
   aiProviderError?: string; // To store errors from AI provider during evaluation
+  // Eligibility evaluation from Convex (for SAM.gov, CSV imports)
+  eligibility?: EligibilityAssessment;
 }
 
 export interface RFPWithEvaluation extends RFP {
@@ -212,14 +214,110 @@ export interface AdminViewProps {
   criteriaConfig: Record<EvaluationCriterionKey, NebulaLogixCriterion>;
   onToggleMasterCriterion: (criterionKey: EvaluationCriterionKey, isEnabled: boolean) => void;
   onToggleCriterionItem: (criterionKey: EvaluationCriterionKey, itemValue: string, isEnabled: boolean) => void;
-  
+
   aiSettings: AiSettings;
   onUpdateAiSettings: (newSettings: Partial<AiSettings> | ((prev: AiSettings) => AiSettings)) => void;
-  
+
   onAutoImproveCorePrompt: () => Promise<void>;
   isImprovingPrompt: boolean;
 
   autoRefreshIntervalHours: number;
   onUpdateAutoRefreshInterval: (hours: number) => void;
   isGeminiConfiguredViaEnv: boolean; // Specifically for the initial Gemini env var check
+}
+
+// ============================================
+// Phase 2: Eligibility Gate Types
+// ============================================
+
+export type EligibilityStatus = 'ELIGIBLE' | 'PARTNER_REQUIRED' | 'REJECTED';
+
+export type EligibilityOutcome = 'pass' | 'fail' | 'flag';
+
+export type EligibilitySeverity = 'hard' | 'soft';
+
+export type EligibilityRuleId =
+  | 'us_entity_required'
+  | 'us_persons_only'
+  | 'us_organization' // Legacy - kept for backward compatibility
+  | 'security_clearance'
+  | 'set_aside'
+  | 'onsite_constraints'
+  | 'minimum_time'
+  | 'out_of_scope'
+  | 'category_check';
+
+export interface EligibilityReason {
+  ruleId: EligibilityRuleId;
+  ruleName: string;
+  outcome: EligibilityOutcome;
+  severity: EligibilitySeverity;
+  evidence: string;
+  keywords: string[];
+}
+
+export interface EligibilityAssessment {
+  status: EligibilityStatus;
+  reasons: EligibilityReason[];
+  evidenceSnippets: string[];
+  assessedAt: number;
+  assessedBy: 'system' | 'manual';
+  rulesVersion: string;
+}
+
+export interface EligibilityRuleConfig {
+  ruleId: EligibilityRuleId;
+  name: string;
+  description: string;
+  enabled: boolean;
+  defaultOutcome: 'REJECTED' | 'PARTNER_REQUIRED' | 'FLAG';
+  allowOverride: boolean;
+  keywords: string[];
+  isRegex: boolean;
+  severity: EligibilitySeverity;
+}
+
+export interface OrganizationCapabilities {
+  hasUsEntity: boolean;
+  certifications: {
+    is8a: boolean;
+    isSDVOSB: boolean;
+    isHUBZone: boolean;
+    isWOSB: boolean;
+    isEDWOSB: boolean;
+    isSmallBusiness: boolean;
+  };
+  canPartnerForSetAside: boolean;
+  canPartnerForOnsite: boolean;
+  canPartnerForUsOrg: boolean;
+}
+
+export interface EligibilityThresholds {
+  minimumDaysToDeadline: number;
+  warningDaysThreshold: number;
+}
+
+export interface EligibilityConfig {
+  organization: OrganizationCapabilities;
+  thresholds: EligibilityThresholds;
+  additionalRejectKeywords: string[];
+  additionalFlagKeywords: string[];
+}
+
+export interface EligibilityFilterResult {
+  ruleId: EligibilityRuleId;
+  ruleName: string;
+  passed: boolean;
+  outcome: EligibilityOutcome;
+  severity: EligibilitySeverity;
+  evidence: string;
+  matchedKeywords: string[];
+}
+
+export interface EligibilityEngineResult {
+  status: EligibilityStatus;
+  reasons: EligibilityReason[];
+  evidenceSnippets: string[];
+  filterResults: EligibilityFilterResult[];
+  rulesVersion: string;
 }
