@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -201,6 +201,7 @@ export const upsert = internalMutation({
     sourceUrl: v.string(),
     evidenceSnippets: v.array(v.string()),
     source: v.string(),
+    needsDetailFetch: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -310,7 +311,7 @@ export const listWithEvaluations = query({
           // Map eligibility status to fit score for frontend compatibility
           isGoodFit: evaluation.eligibility.status === "ELIGIBLE",
           totalScore: evaluation.eligibility.status === "ELIGIBLE" ? 3 :
-                      evaluation.eligibility.status === "PARTNER_REQUIRED" ? 2 : 1,
+            evaluation.eligibility.status === "PARTNER_REQUIRED" ? 2 : 1,
           maxScore: 3,
         } : null,
       };
@@ -330,6 +331,243 @@ export const listWithEvaluations = query({
       total: filtered.length,
       evaluated: results.filter(r => r.evaluation).length,
       unevaluated: results.filter(r => !r.evaluation).length,
+    };
+  },
+});
+
+/**
+ * DEBUG: Inspect SAM.gov records to see what fields we actually have
+ */
+export const debugSamGovRecords = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const samRecords = await ctx.db
+      .query("opportunities")
+      .withIndex("by_source", (q) => q.eq("source", "sam.gov"))
+      .take(args.limit ?? 5);
+
+    return samRecords.map((record) => ({
+      id: record._id,
+      title: record.title,
+      hasDescription: !!record.fullDescription,
+      descriptionLength: record.fullDescription?.length ?? 0,
+      descriptionPreview: record.fullDescription?.substring(0, 200) || "No description",
+      source: record.source,
+      externalIds: record.externalIds,
+      categories: record.categories,
+      buyer: record.buyer,
+      hasContact: !!record.contact,
+      contact: record.contact,
+      evidenceSnippets: record.evidenceSnippets,
+      attachments: record.attachments.length,
+      createdAt: record._creationTime,
+    }));
+  },
+});
+
+/**
+ * Export SAM.gov records in batches (bandwidth optimized)
+ * Use cursor-based pagination to avoid loading all at once
+ */
+export const exportSamGovRecords = query({
+  args: {
+    cursor: v.optional(v.id("opportunities")),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 50; // Small batches
+
+    let q = ctx.db
+      .query("opportunities")
+      .withIndex("by_source", (q) => q.eq("source", "sam.gov"))
+      .order("desc");
+
+    // Apply cursor if provided
+    if (args.cursor) {
+      const cursorDoc = await ctx.db.get(args.cursor);
+      if (cursorDoc) {
+        q = q.filter((q) => q.lt(q.field("_creationTime"), cursorDoc._creationTime));
+      }
+    }
+
+    const samRecords = await q.take(limit + 1);
+    const hasMore = samRecords.length > limit;
+    const items = samRecords.slice(0, limit);
+
+    return {
+      records: items.map((record) => ({
+        // IDs
+        internalId: record._id,
+        externalId: record.externalIds[0]?.externalId || "",
+        samGovUrl: record.externalIds[0]?.url || "",
+
+        // Core fields
+        title: record.title,
+        fullDescription: record.fullDescription,
+
+        // Buyer info
+        buyerName: record.buyer.name,
+        buyerType: record.buyer.type,
+
+        // Location
+        state: record.location.state || "",
+        city: record.location.city || "",
+        isRemoteAllowed: record.location.isRemoteAllowed ? "Yes" : "No",
+
+        // Dates & Value
+        postedDate: new Date(record.postedDate).toISOString(),
+        dueDate: new Date(record.dueDate).toISOString(),
+        estimatedValue: record.estimatedValue || 0,
+
+        // Classification
+        categories: record.categories.join("; "),
+        contractType: record.contractType || "",
+        setAside: record.setAside || "",
+
+        // Contact
+        contactName: record.contact?.name || "",
+        contactEmail: record.contact?.email || "",
+        contactPhone: record.contact?.phone || "",
+
+        // Additional data
+        evidenceSnippets: record.evidenceSnippets.join(" | "),
+        attachmentCount: record.attachments.length,
+        attachmentUrls: record.attachments.map(a => a.url).join("; "),
+
+        // Metadata
+        sourceUrl: record.sourceUrl,
+        source: record.source,
+        createdAt: new Date(record._creationTime).toISOString(),
+        lastUpdatedAt: record.lastUpdatedAt ? new Date(record.lastUpdatedAt).toISOString() : "",
+      })),
+      hasMore,
+      nextCursor: hasMore ? items[items.length - 1]._id : null,
+      total: items.length,
+    };
+  },
+});
+
+/**
+ * Delete all SAM.gov records (admin only)
+ * IMPORTANT: This is destructive - use with caution
+ *
+ * TODO: PRODUCTION - Re-enable auth check before deploying to production!
+ */
+export const deleteAllSamGovRecords = mutation({
+  args: {
+    confirm: v.boolean(),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - REQUIRED for production
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+
+    // Safety confirmation
+    if (!args.confirm) {
+      throw new Error("Must set confirm: true to delete records");
+    }
+
+    // Delete in batches to avoid timeout
+    const batchSize = args.batchSize ?? 100;
+    const samRecords = await ctx.db
+      .query("opportunities")
+      .withIndex("by_source", (q) => q.eq("source", "sam.gov"))
+      .take(batchSize);
+
+    let deletedCount = 0;
+    for (const record of samRecords) {
+      await ctx.db.delete(record._id);
+      deletedCount++;
+    }
+
+    const hasMore = samRecords.length === batchSize;
+
+    return {
+      success: true,
+      deleted: deletedCount,
+      hasMore,
+      message: hasMore
+        ? `Deleted ${deletedCount} records. Run again to delete more.`
+        : `Deleted ${deletedCount} records. All SAM.gov records removed.`,
+    };
+  },
+});
+
+/**
+ * Delete all RFPMart CSV records (admin only)
+ * IMPORTANT: This is destructive - use with caution
+ */
+export const deleteAllRfpMartCsvRecords = mutation({
+  args: {
+    confirm: v.boolean(),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - REQUIRED for production
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+
+    // Safety confirmation
+    if (!args.confirm) {
+      throw new Error("Must set confirm: true to delete records");
+    }
+
+    // Delete in batches to avoid timeout
+    const batchSize = args.batchSize ?? 100;
+    const records = await ctx.db
+      .query("opportunities")
+      .withIndex("by_source", (q) => q.eq("source", "rfpmart-csv"))
+      .take(batchSize);
+
+    let deletedCount = 0;
+    for (const record of records) {
+      // Also delete associated evaluations
+      const evaluation = await ctx.db
+        .query("evaluations")
+        .withIndex("by_opportunity", (q) => q.eq("opportunityId", record._id))
+        .first();
+      if (evaluation) {
+        await ctx.db.delete(evaluation._id);
+      }
+
+      await ctx.db.delete(record._id);
+      deletedCount++;
+    }
+
+    const hasMore = records.length === batchSize;
+
+    return {
+      success: true,
+      deleted: deletedCount,
+      hasMore,
+      message: hasMore
+        ? `Deleted ${deletedCount} records. Run again to delete more.`
+        : `Deleted ${deletedCount} records. All RFPMart CSV records removed.`,
     };
   },
 });
@@ -356,6 +594,43 @@ export const remove = mutation({
     }
 
     await ctx.db.delete(args.id);
+    return { success: true };
+  },
+});
+
+/**
+ * Internal query to list opportunities by source (for backfill operations)
+ */
+export const listBySource = internalQuery({
+  args: {
+    source: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 500;
+
+    return await ctx.db
+      .query("opportunities")
+      .withIndex("by_source", (q) => q.eq("source", args.source))
+      .take(limit);
+  },
+});
+
+/**
+ * Internal mutation to update opportunity fields (for backfill operations)
+ */
+export const update = internalMutation({
+  args: {
+    id: v.id("opportunities"),
+    fullDescription: v.optional(v.string()),
+    needsDetailFetch: v.optional(v.boolean()),
+    lastUpdatedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+
+    await ctx.db.patch(id, updates);
+
     return { success: true };
   },
 });
