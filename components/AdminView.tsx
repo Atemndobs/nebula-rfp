@@ -4,7 +4,7 @@ import { GEMINI_ENV_API_KEY_ERROR_MESSAGE, DEFAULT_AI_CORE_PROMPT_TEMPLATE, DEFA
 import LoadingSpinner from './LoadingSpinner';
 import { fetchOllamaModels } from '../services/ollamaService';
 import { fetchLmStudioModels } from '../services/lmStudioService';
-import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, ApiKeyManager, CsvUpload } from './admin';
+import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, ApiKeyManager, CsvUpload, SamGovManager, DatabaseSettings } from './admin';
 
 // Tab types
 type AdminTab = 'data' | 'ai' | 'evaluation' | 'settings';
@@ -364,6 +364,9 @@ const AdminView: React.FC<AdminViewProps> = ({
         return (
           <div className="space-y-8">
             <SourcesAdmin />
+            <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
+              <SamGovManager />
+            </div>
             <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
               <CsvUpload />
             </div>
@@ -775,16 +778,9 @@ const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </section>
 
-            {/* Future Settings Placeholder */}
+            {/* Database Management */}
             <section className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
-              <h3 className="text-lg font-medium text-geist-foreground dark:text-dark-geist-foreground mb-3">
-                Other Application Settings
-              </h3>
-              <div className="p-6 bg-accents-1 dark:bg-dark-accents-2 border border-accents-2 dark:border-dark-accents-2 rounded-md text-center">
-                <p className="text-geist-secondary dark:text-dark-geist-secondary">
-                  This area is reserved for future application configurations.
-                </p>
-              </div>
+              <DatabaseSettings />
             </section>
           </div>
         );

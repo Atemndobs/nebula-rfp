@@ -3,3 +3,5 @@ export { IngestionLogs } from "./IngestionLogs";
 export { EligibilityRulesAdmin } from "./EligibilityRulesAdmin";
 export { ApiKeyManager, getApiKeyForProvider, getModelForProvider, getSelectedProvider } from "./ApiKeyManager";
 export { CsvUpload } from "./CsvUpload";
+export { SamGovManager } from "./SamGovManager";
+export { DatabaseSettings } from "./DatabaseSettings";

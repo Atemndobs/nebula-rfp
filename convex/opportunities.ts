@@ -252,6 +252,122 @@ export const upsert = internalMutation({
 });
 
 /**
+ * Batch upsert opportunities (bandwidth optimized)
+ */
+export const upsertBatch = internalMutation({
+  args: {
+    opportunities: v.array(
+      v.object({
+        externalIds: v.array(
+          v.object({
+            source: v.string(),
+            externalId: v.string(),
+            url: v.string(),
+            fetchedAt: v.number(),
+          })
+        ),
+        title: v.string(),
+        fullDescription: v.string(),
+        buyer: v.object({
+          name: v.string(),
+          type: v.union(
+            v.literal("federal"),
+            v.literal("state"),
+            v.literal("local"),
+            v.literal("other")
+          ),
+        }),
+        location: v.object({
+          state: v.optional(v.string()),
+          city: v.optional(v.string()),
+          isRemoteAllowed: v.optional(v.boolean()),
+        }),
+        postedDate: v.number(),
+        dueDate: v.number(),
+        dueTime: v.optional(v.string()),
+        estimatedValue: v.optional(v.number()),
+        valueRange: v.optional(
+          v.object({
+            min: v.optional(v.number()),
+            max: v.optional(v.number()),
+          })
+        ),
+        contractType: v.optional(v.string()),
+        contact: v.optional(
+          v.object({
+            name: v.optional(v.string()),
+            email: v.optional(v.string()),
+            phone: v.optional(v.string()),
+          })
+        ),
+        categories: v.array(v.string()),
+        setAside: v.optional(v.string()),
+        attachments: v.array(
+          v.object({
+            name: v.string(),
+            url: v.string(),
+            type: v.optional(v.string()),
+            size: v.optional(v.number()),
+          })
+        ),
+        sourceUrl: v.string(),
+        evidenceSnippets: v.array(v.string()),
+        source: v.string(),
+        needsDetailFetch: v.optional(v.boolean()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const results: { id: string; action: "inserted" | "updated" }[] = [];
+
+    // Process sequentially within the mutation to ensure consistency
+    // This is still much faster than separate mutations because it's one transaction
+    for (const opp of args.opportunities) {
+      // 1. Check for duplicates in the current batch of existing DB items
+      // We limit to checking the last 100 items of the SAME SOURCE to avoid full table scans
+      // This is a heuristic: we assume duplicates are likely recent.
+      const existingOpportunities = await ctx.db
+        .query("opportunities")
+        .withIndex("by_source", (q) => q.eq("source", opp.source))
+        .order("desc")
+        .take(100);
+
+      const searchIds = new Set(opp.externalIds.map((ref) => `${ref.source}:${ref.externalId}`));
+      let existingId: string | null = null;
+
+      for (const existing of existingOpportunities) {
+        for (const existingRef of existing.externalIds) {
+          const key = `${existingRef.source}:${existingRef.externalId}`;
+          if (searchIds.has(key)) {
+            existingId = existing._id;
+            break;
+          }
+        }
+        if (existingId) break;
+      }
+
+      if (existingId) {
+        await ctx.db.patch(existingId as any, {
+          ...opp,
+          lastUpdatedAt: now,
+        });
+        results.push({ id: existingId, action: "updated" });
+      } else {
+        const id = await ctx.db.insert("opportunities", {
+          ...opp,
+          ingestedAt: now,
+          lastUpdatedAt: now,
+        });
+        results.push({ id, action: "inserted" });
+      }
+    }
+
+    return results;
+  },
+});
+
+/**
  * List opportunities with their evaluations
  * Returns opportunities with eligibility status from the admin-configured rules
  * BANDWIDTH OPTIMIZED: Uses indexed lookups instead of loading all evaluations
@@ -632,5 +748,98 @@ export const update = internalMutation({
     await ctx.db.patch(id, updates);
 
     return { success: true };
+  },
+});
+
+/**
+ * Clear ALL opportunities from the database (admin only)
+ * Uses batch deletion pattern to avoid timeouts
+ * Also clears associated evaluations
+ *
+ * IMPORTANT: This is DESTRUCTIVE - clears all opportunity data!
+ */
+export const clearAllOpportunities = mutation({
+  args: {
+    confirm: v.boolean(),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check - REQUIRED
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if user is admin
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+
+    // Safety confirmation
+    if (!args.confirm) {
+      throw new Error("Must set confirm: true to delete records");
+    }
+
+    // Delete in batches to avoid timeout
+    const batchSize = args.batchSize ?? 100;
+    const opportunities = await ctx.db
+      .query("opportunities")
+      .take(batchSize);
+
+    let deletedOpportunities = 0;
+    let deletedEvaluations = 0;
+
+    for (const opp of opportunities) {
+      // Also delete associated evaluations
+      const evaluation = await ctx.db
+        .query("evaluations")
+        .withIndex("by_opportunity", (q) => q.eq("opportunityId", opp._id))
+        .first();
+      if (evaluation) {
+        await ctx.db.delete(evaluation._id);
+        deletedEvaluations++;
+      }
+
+      await ctx.db.delete(opp._id);
+      deletedOpportunities++;
+    }
+
+    const hasMore = opportunities.length === batchSize;
+
+    return {
+      success: true,
+      deletedOpportunities,
+      deletedEvaluations,
+      hasMore,
+      message: hasMore
+        ? `Deleted ${deletedOpportunities} opportunities and ${deletedEvaluations} evaluations. Run again to delete more.`
+        : `Deleted ${deletedOpportunities} opportunities and ${deletedEvaluations} evaluations. Database cleared.`,
+    };
+  },
+});
+
+/**
+ * Get count of opportunities (for UI confirmation)
+ * BANDWIDTH OPTIMIZED: Uses sampling, not full count
+ */
+export const getCount = query({
+  args: {},
+  handler: async (ctx) => {
+    // Sample to estimate - avoid loading entire table
+    const sample = await ctx.db.query("opportunities").take(1001);
+    const evaluationSample = await ctx.db.query("evaluations").take(1001);
+
+    return {
+      opportunitiesCount: sample.length,
+      evaluationsCount: evaluationSample.length,
+      isExact: sample.length < 1001,
+      displayCount: sample.length >= 1001 ? "1000+" : sample.length.toString(),
+      displayEvaluations: evaluationSample.length >= 1001 ? "1000+" : evaluationSample.length.toString(),
+    };
   },
 });

@@ -21,7 +21,8 @@ interface SamGovOpportunity {
   naicsCode?: string;
   classificationCode?: string;
   active?: string;
-  description?: string;
+  description?: string; // NOTE: This is a URL to fetch full description, not inline text
+  additionalInfoLink?: string; // Additional info URL
   organizationType?: string;
   uiLink?: string;
   placeOfPerformance?: {
@@ -52,6 +53,49 @@ interface SamGovResponse {
 }
 
 /**
+ * Fetch full description text from SAM.gov description URL
+ *
+ * SAM.gov API returns description and additionalInfoLink as URLs, not inline text.
+ * This function fetches the actual description content from those URLs.
+ *
+ * @param descriptionUrl - URL from the description or additionalInfoLink field
+ * @param apiKey - SAM.gov API key to append to the URL
+ * @returns Full description text, or null if fetch fails
+ */
+async function fetchDescriptionFromUrl(
+  descriptionUrl: string,
+  apiKey: string
+): Promise<string | null> {
+  try {
+    // Append API key as query parameter
+    const url = descriptionUrl.includes('?')
+      ? `${descriptionUrl}&api_key=${apiKey}`
+      : `${descriptionUrl}?api_key=${apiKey}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch description from ${descriptionUrl}: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    // Get the text content
+    const text = await response.text();
+
+    // Basic validation - ensure we got meaningful content
+    if (!text || text.trim().length < 10) {
+      console.warn(`Description URL returned empty or minimal content: ${descriptionUrl}`);
+      return null;
+    }
+
+    return text.trim();
+  } catch (error) {
+    console.error(`Error fetching description from URL ${descriptionUrl}:`, error);
+    return null;
+  }
+}
+
+/**
  * Fetch opportunities from SAM.gov API
  */
 export const fetchOpportunities = internalAction({
@@ -62,7 +106,18 @@ export const fetchOpportunities = internalAction({
     postedTo: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    error?: string;
+    totalRecords?: number;
+    fetched?: number;
+    new?: number;
+    updated?: number;
+    evaluated?: number;
+    descriptionsFetched?: number;
+    descriptionsFailed?: number;
+    errors?: number;
+  }> => {
     const apiKey = process.env.SAM_GOV_API_KEY;
 
     if (!apiKey) {
@@ -86,6 +141,37 @@ export const fetchOpportunities = internalAction({
       });
 
       return { success: false, error: "SAM_GOV_API_KEY not configured" };
+    }
+
+    // Check daily quota before making API request
+    const sourceRecord = await ctx.runQuery(internal.sources.getByNameInternal, { name: "sam.gov" });
+    if (sourceRecord && sourceRecord.rateLimitPerDay) {
+      const requestsRemaining: number = sourceRecord.rateLimitPerDay - sourceRecord.fetchedToday;
+      console.log(`SAM.gov Daily Quota: ${sourceRecord.fetchedToday}/${sourceRecord.rateLimitPerDay} requests used (${requestsRemaining} remaining)`);
+
+      if (sourceRecord.fetchedToday >= sourceRecord.rateLimitPerDay) {
+        const errorMsg: string = `Daily API quota exceeded (${sourceRecord.fetchedToday}/${sourceRecord.rateLimitPerDay}). Quota resets at midnight UTC.`;
+
+        await ctx.runMutation(internal.ingestion.logs.create, {
+          source: "sam.gov",
+          status: "failed",
+          fetchedCount: 0,
+          newCount: 0,
+          updatedCount: 0,
+          duplicateCount: 0,
+          errorCount: 1,
+          errors: [errorMsg],
+        });
+
+        await ctx.runMutation(internal.sources.updateHealth, {
+          name: "sam.gov",
+          status: "warning",
+          errorCount: 1,
+          lastError: errorMsg,
+        });
+
+        return { success: false, error: errorMsg };
+      }
     }
 
     // Build query parameters
@@ -139,8 +225,8 @@ export const fetchOpportunities = internalAction({
       params.append("q", args.keywords.join(" OR "));
     }
 
-    // Only active opportunities
-    params.append("ptype", "o,p,k"); // Opportunities, Presolicitations, Combined
+    // Only active opportunities (not presolicitations or combined)
+    params.append("ptype", "o"); // Opportunities only
 
     try {
       const url = `https://api.sam.gov/opportunities/v2/search?${params.toString()}`;
@@ -158,15 +244,109 @@ export const fetchOpportunities = internalAction({
 
       const data: SamGovResponse = await response.json();
 
+      // DEBUG: Log sample opportunity to see what fields we actually get
+      if (data.opportunitiesData && data.opportunitiesData.length > 0) {
+        const sample = data.opportunitiesData[0];
+        console.log("=== SAM.gov API Sample Record ===");
+        console.log("Fields present:", Object.keys(sample));
+        console.log("archiveType:", sample.archiveType);
+        console.log("active:", sample.active);
+        console.log("archiveDate:", sample.archiveDate);
+        console.log("description length:", sample.description?.length ?? 0);
+        console.log("Has description:", !!sample.description);
+        console.log("================================");
+      }
+
+      // DEBUG: Log filtering statistics
+      const statsBeforeFilter = {
+        total: data.opportunitiesData?.length ?? 0,
+        withArchiveType: 0,
+        withActive: 0,
+        withDescription: 0,
+        isICRFP: 0,
+        isActive: 0,
+      };
+
+      (data.opportunitiesData ?? []).forEach((opp) => {
+        if (opp.archiveType) statsBeforeFilter.withArchiveType++;
+        if (opp.active) statsBeforeFilter.withActive++;
+        if (opp.description) statsBeforeFilter.withDescription++;
+        if (opp.archiveType === "ICRFP") statsBeforeFilter.isICRFP++;
+        if (opp.active === "Yes" || opp.active === "Y") statsBeforeFilter.isActive++;
+      });
+
+      console.log("=== Pre-filter Statistics ===");
+      console.log("Total records from API:", statsBeforeFilter.total);
+      console.log("With archiveType field:", statsBeforeFilter.withArchiveType);
+      console.log("With active field:", statsBeforeFilter.withActive);
+      console.log("With description field:", statsBeforeFilter.withDescription);
+      console.log("Marked as ICRFP:", statsBeforeFilter.isICRFP);
+      console.log("Marked as Active:", statsBeforeFilter.isActive);
+      console.log("=============================");
+
+      // Filter out ICRFPs and inactive opportunities
+      const activeOpportunities = (data.opportunitiesData ?? []).filter((opp) => {
+        // Exclude ICRFPs (archived/closed RFPs)
+        if (opp.archiveType === "ICRFP") return false;
+
+        // Only include active opportunities
+        if (opp.active !== "Yes" && opp.active !== "Y") return false;
+
+        return true;
+      });
+
+      const filteredCount = (data.opportunitiesData?.length ?? 0) - activeOpportunities.length;
+      console.log(`Filtered out ${filteredCount} ICRFP/inactive opportunities (${activeOpportunities.length} remaining)`);
+
       // Process opportunities - store and auto-evaluate for eligibility
       let newCount = 0;
       let updatedCount = 0;
       let evaluatedCount = 0;
+      let descriptionFetchSuccessCount = 0;
+      let descriptionFetchFailCount = 0;
       const errors: string[] = [];
 
-      for (const opp of data.opportunitiesData ?? []) {
+      for (const opp of activeOpportunities) {
         try {
+          // CRITICAL: SAM.gov API returns description as a URL, not inline text
+          // Fetch the full description content before processing
+          let fullDescriptionText: string | null = null;
+          let needsDetailFetch = false;
+
+          if (opp.description && opp.description.startsWith('http')) {
+            // Rate limit: 100ms delay between description fetches (10 req/sec)
+            if (descriptionFetchSuccessCount + descriptionFetchFailCount > 0) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            fullDescriptionText = await fetchDescriptionFromUrl(opp.description, apiKey);
+
+            if (fullDescriptionText) {
+              descriptionFetchSuccessCount++;
+              // Replace URL with actual text content
+              opp.description = fullDescriptionText;
+            } else {
+              descriptionFetchFailCount++;
+              needsDetailFetch = true;
+              // Keep empty string if fetch failed
+              opp.description = '';
+            }
+          } else if (opp.description && !opp.description.startsWith('http')) {
+            // Description is inline text (rare case) - use as-is
+            fullDescriptionText = opp.description;
+          } else {
+            // No description field at all
+            opp.description = '';
+            needsDetailFetch = true;
+          }
+
           const normalized = normalizeOpportunity(opp);
+
+          // Add needsDetailFetch flag if description fetch failed
+          if (needsDetailFetch) {
+            (normalized as any).needsDetailFetch = true;
+          }
+
           const result = await ctx.runMutation(internal.opportunities.upsert, normalized);
 
           if (result.action === "inserted") {
@@ -190,13 +370,20 @@ export const fetchOpportunities = internalAction({
         }
       }
 
+      // Log description fetch statistics
+      console.log("=== Description Fetch Results ===");
+      console.log(`Successfully fetched: ${descriptionFetchSuccessCount}`);
+      console.log(`Failed to fetch: ${descriptionFetchFailCount}`);
+      console.log(`Success rate: ${activeOpportunities.length > 0 ? Math.round((descriptionFetchSuccessCount / activeOpportunities.length) * 100) : 0}%`);
+      console.log("=================================");
+
       // Update source health
       await ctx.runMutation(internal.sources.updateHealth, {
         name: "sam.gov",
         status: errors.length > 0 ? "warning" : "healthy",
         errorCount: errors.length,
         lastFetchAt: Date.now(),
-        fetchedCount: data.opportunitiesData?.length ?? 0,
+        fetchedCount: activeOpportunities.length,
         lastError: errors.length > 0 ? errors[0] : undefined,
       });
 
@@ -204,10 +391,10 @@ export const fetchOpportunities = internalAction({
       await ctx.runMutation(internal.ingestion.logs.create, {
         source: "sam.gov",
         status: errors.length > 0 ? "partial" : "success",
-        fetchedCount: data.opportunitiesData?.length ?? 0,
+        fetchedCount: activeOpportunities.length,
         newCount,
         updatedCount,
-        duplicateCount: 0,
+        duplicateCount: filteredCount, // Report filtered ICRFPs as duplicates
         errorCount: errors.length,
         errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
       });
@@ -215,21 +402,39 @@ export const fetchOpportunities = internalAction({
       return {
         success: true,
         totalRecords: data.totalRecords,
-        fetched: data.opportunitiesData?.length ?? 0,
+        fetched: activeOpportunities.length,
         new: newCount,
         updated: updatedCount,
         evaluated: evaluatedCount,
+        descriptionsFetched: descriptionFetchSuccessCount,
+        descriptionsFailed: descriptionFetchFailCount,
         errors: errors.length,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const isThrottled = errorMessage.includes("429") || errorMessage.toLowerCase().includes("throttled");
+      const isNetworkError = errorMessage.toLowerCase().includes("fetch failed") || errorMessage.toLowerCase().includes("network");
+
+      let formattedError = errorMessage;
+      if (isThrottled) {
+        // Try to extract date from error message if possible
+        // Expected format: "You can access API after 2026-Feb-06 00:00:00+0000 UTC"
+        const nextAccessMatch = errorMessage.match(/after\s+([0-9]{4}-[A-Za-z]{3}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}:[0-9]{2})/);
+        if (nextAccessMatch) {
+          formattedError = `SAM.gov Throttled until ${nextAccessMatch[1]} UTC`;
+        } else {
+          formattedError = "SAM.gov API rate limit exceeded (429)";
+        }
+      } else if (isNetworkError) {
+        formattedError = `Network error contacting SAM.gov: ${errorMessage}`;
+      }
 
       // Update source health
       await ctx.runMutation(internal.sources.updateHealth, {
         name: "sam.gov",
         status: "error",
         errorCount: 1,
-        lastError: errorMessage,
+        lastError: formattedError,
       });
 
       // Log failure
@@ -241,10 +446,10 @@ export const fetchOpportunities = internalAction({
         updatedCount: 0,
         duplicateCount: 0,
         errorCount: 1,
-        errors: [errorMessage],
+        errors: [formattedError],
       });
 
-      return { success: false, error: errorMessage };
+      return { success: false, error: formattedError };
     }
   },
 });
@@ -337,11 +542,11 @@ function normalizeOpportunity(raw: SamGovOpportunity) {
     contractType: raw.typeOfSetAsideDescription || undefined,
     contact: raw.pointOfContact?.[0]
       ? {
-          // Only include fields that have actual string values (not null/undefined)
-          ...(raw.pointOfContact[0].fullName && { name: raw.pointOfContact[0].fullName }),
-          ...(raw.pointOfContact[0].email && { email: raw.pointOfContact[0].email }),
-          ...(raw.pointOfContact[0].phone && { phone: raw.pointOfContact[0].phone }),
-        }
+        // Only include fields that have actual string values (not null/undefined)
+        ...(raw.pointOfContact[0].fullName && { name: raw.pointOfContact[0].fullName }),
+        ...(raw.pointOfContact[0].email && { email: raw.pointOfContact[0].email }),
+        ...(raw.pointOfContact[0].phone && { phone: raw.pointOfContact[0].phone }),
+      }
       : undefined,
     categories: raw.naicsCode ? [raw.naicsCode] : [],
     setAside: raw.typeOfSetAside || undefined,
