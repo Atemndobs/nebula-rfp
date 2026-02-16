@@ -413,9 +413,12 @@ export const listWithEvaluations = query({
         .map(e => [e.opportunityId, e])
     );
 
-    // Join opportunities with evaluations (using eligibility rules results)
+    // Join opportunities with evaluations
     const results = opportunities.map(opp => {
       const evaluation = evalMap.get(opp._id);
+      const scoring = evaluation?.scoring;
+      const scoringMax = scoring?.dimensions?.length ?? 0;
+      const scoringTotal = scoring?.totalScore ?? 0;
       return {
         ...opp,
         evaluation: evaluation ? {
@@ -424,11 +427,13 @@ export const listWithEvaluations = query({
           evidenceSnippets: evaluation.eligibility.evidenceSnippets,
           rulesVersion: evaluation.eligibility.rulesVersion,
           evaluatedAt: evaluation.evaluatedAt,
-          // Map eligibility status to fit score for frontend compatibility
-          isGoodFit: evaluation.eligibility.status === "ELIGIBLE",
-          totalScore: evaluation.eligibility.status === "ELIGIBLE" ? 3 :
-            evaluation.eligibility.status === "PARTNER_REQUIRED" ? 2 : 1,
-          maxScore: 3,
+          // Preserve legacy compatibility fields, but do not fabricate scores.
+          isGoodFit: scoring?.isGoodFit ?? (evaluation.eligibility.status === "ELIGIBLE"),
+          totalScore: scoringTotal,
+          maxScore: scoringMax,
+          threshold: scoring?.threshold ?? null,
+          configVersion: scoring?.configVersion ?? null,
+          dimensions: scoring?.dimensions ?? [],
         } : null,
       };
     });

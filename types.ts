@@ -110,6 +110,7 @@ export interface FilterState {
   keyword: string;
   maxDeadline: string; 
   showOnlyFit: boolean;
+  hideOutliers: boolean;
 }
 
 export interface FilterControlsProps {

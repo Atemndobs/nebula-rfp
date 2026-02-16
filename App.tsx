@@ -95,6 +95,16 @@ const saveToLocalStorage = <T,>(key: string, value: T): void => {
 };
 
 const LAST_SUCCESSFUL_RFP_FETCH_TIMESTAMP_KEY = 'lastSuccessfulRfpFetchTimestamp';
+const SPECIALIST_VENDOR_RED_FLAGS = [
+  'expert vendor',
+  'specialized vendor',
+  'specialist vendor',
+  'subject matter expert',
+  'domain expert',
+  'niche expertise required',
+  'oem certified partner',
+  'exclusive implementation partner',
+];
 
 const formatTimestampToReadable = (timestamp: number | null, type: 'full' | 'relative' = 'full'): string => {
   if (timestamp === null) return 'N/A';
@@ -310,6 +320,7 @@ const App: React.FC = () => {
     keyword: '',
     maxDeadline: '',
     showOnlyFit: false,
+    hideOutliers: true,
   };
   const [filters, setFilters] = useState<FilterState>(initialFilters);
 
@@ -1214,11 +1225,25 @@ const App: React.FC = () => {
   };
 
   const displayedRfps = useMemo(() => {
+    const isSpecialistVendorOutlier = (rfp: RFPWithEvaluation): boolean => {
+      const outOfScopeHardFail = rfp.evaluation?.eligibility?.reasons?.some(
+        (reason) => reason.ruleId === 'out_of_scope' && reason.outcome === 'fail'
+      );
+      if (outOfScopeHardFail) return true;
+
+      const searchableText = `${rfp.title} ${rfp.summary}`.toLowerCase();
+      return SPECIALIST_VENDOR_RED_FLAGS.some((phrase) => searchableText.includes(phrase));
+    };
+
     // Combine RFPs from external API and Convex database
     const combinedRfps = [...allRfps, ...convexRfps];
 
     const filtered = combinedRfps
       .filter(rfp => {
+        if (filters.hideOutliers && isSpecialistVendorOutlier(rfp)) {
+          return false;
+        }
+
         if (filters.showOnlyFit) {
           if (!rfp.evaluation || !rfp.evaluation.isFit) return false;
         }

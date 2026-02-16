@@ -3,186 +3,14 @@
 import { internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { scrapeRfpMartDetailPage } from "./rfpmartScraper";
 
 /**
  * RFPMart CSV Enrichment
  *
  * Fetches full descriptions for CSV-imported opportunities that only have
- * titles (no descriptions). Uses the scraper to fetch content from URLs.
+ * titles (no descriptions). Uses the shared RFPMart scraper.
  */
-
-interface ScrapedRfpDetail {
-    id: string;
-    title: string;
-    description: string;
-    scope_of_service?: string;
-    posted_date?: string;
-    expiry_date?: string;
-    question_deadline?: string;
-    location?: string;
-    budget?: string;
-    eligibility?: string;
-    work_performance?: string;
-    category?: string;
-    country?: string;
-    state?: string;
-    url: string;
-}
-
-/**
- * Clean HTML tags from text
- */
-function stripHtml(html: string): string {
-    return html
-        .replace(/<[^>]*>/g, " ")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-/**
- * Extract field value from RFPMart page structure
- */
-function extractField(html: string, fieldName: string): string {
-    const patterns = [
-        new RegExp(`<strong>${fieldName}[:\\s]*</strong>\\s*([^<]+)`, "i"),
-        new RegExp(`${fieldName}[:\\s]*</strong>\\s*([^<]+)`, "i"),
-        new RegExp(`${fieldName}[:\\s]*</[^>]+>\\s*([^<]+)`, "i"),
-        new RegExp(`>${fieldName}[:\\s]*<[^>]*>([^<]+)`, "i"),
-    ];
-
-    for (const pattern of patterns) {
-        const match = html.match(pattern);
-        if (match && match[1]) {
-            return stripHtml(match[1]).trim();
-        }
-    }
-    return "";
-}
-
-/**
- * Core scraping logic for RFPMart pages
- */
-async function scrapePageContent(url: string): Promise<ScrapedRfpDetail> {
-    if (!url) {
-        throw new Error("URL is required");
-    }
-
-    const response = await fetch(url, {
-        headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; RFPDiscovery/1.0)",
-            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch page: ${response.status} ${response.statusText}`);
-    }
-
-    const html = await response.text();
-
-    // Extract ID from URL
-    const idMatch = url.match(/\/(\d+)-[^/]+\.html$/);
-    const id = idMatch ? idMatch[1] : url;
-
-    // Extract title from <title> tag or <h1>
-    let title = "";
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-    if (titleMatch) {
-        title = stripHtml(titleMatch[1]).replace(/ - RFPMart.*$/i, "").trim();
-    }
-    if (!title) {
-        const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-        if (h1Match) {
-            title = stripHtml(h1Match[1]);
-        }
-    }
-
-    // Extract description - usually in main content area
-    let description = "";
-
-    const descPatterns = [
-        /<div[^>]*class="[^"]*description[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-        /<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-        /<meta[^>]*name="description"[^>]*content="([^"]+)"/i,
-        /<p[^>]*class="[^"]*summary[^"]*"[^>]*>([\s\S]*?)<\/p>/i,
-    ];
-
-    for (const pattern of descPatterns) {
-        const match = html.match(pattern);
-        if (match && match[1]) {
-            description = stripHtml(match[1]);
-            if (description.length > 50) break;
-        }
-    }
-
-    // If no description found, try to get first substantial paragraph
-    if (!description || description.length < 50) {
-        const paragraphs = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
-        for (const p of paragraphs) {
-            const text = stripHtml(p);
-            if (text.length > 100 && !text.includes("cookie") && !text.includes("privacy")) {
-                description = text;
-                break;
-            }
-        }
-    }
-
-    // Extract various fields
-    const postedDate =
-        extractField(html, "Posted Date") ||
-        extractField(html, "Post Date") ||
-        extractField(html, "Published");
-
-    const expiryDate =
-        extractField(html, "Expiry Date") ||
-        extractField(html, "Due Date") ||
-        extractField(html, "Deadline") ||
-        "";
-
-    const location =
-        extractField(html, "Location") ||
-        extractField(html, "Place of Performance") ||
-        extractField(html, "State");
-
-    const budget =
-        extractField(html, "Budget") ||
-        extractField(html, "Estimated Value") ||
-        extractField(html, "Contract Value");
-
-    const eligibility =
-        extractField(html, "Eligibility") ||
-        extractField(html, "Set-Aside") ||
-        extractField(html, "Business Type");
-
-    const category =
-        extractField(html, "Category") || extractField(html, "Type") || extractField(html, "NAICS");
-
-    const scopeOfService =
-        extractField(html, "Scope of Service") ||
-        extractField(html, "Scope of Work") ||
-        extractField(html, "Requirements");
-
-    return {
-        id,
-        title: title || "Title not available",
-        description: description || "No description available",
-        scope_of_service: scopeOfService || undefined,
-        posted_date: postedDate || undefined,
-        expiry_date: expiryDate || undefined,
-        location: location || undefined,
-        budget: budget || undefined,
-        eligibility: eligibility || undefined,
-        category: category || undefined,
-        url,
-    };
-}
 
 /**
  * Enrich pending RFPMart CSV opportunities with full descriptions
@@ -227,7 +55,7 @@ export const enrichPending = internalAction({
                 }
 
                 console.log(`Scraping: ${sourceUrl}`);
-                const scraped = await scrapePageContent(sourceUrl);
+                const scraped = await scrapeRfpMartDetailPage(sourceUrl);
 
                 // Update the opportunity with enriched data
                 await ctx.runMutation(internal.opportunities.update, {
