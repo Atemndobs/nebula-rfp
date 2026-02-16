@@ -236,6 +236,8 @@ function SourceCard({ source }: { source: Source }) {
   const triggerRfpmart = useAction(api.ingestion.rfpmart.triggerFetch);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
+  const isManualCsvSource = source.name === "rfpmart-csv";
+  const canFetchNow = source.enabled && !isManualCsvSource;
 
   const statusColors = {
     healthy: { bg: "#DCFCE7", border: "#22C55E", text: "#15803D" },
@@ -254,6 +256,11 @@ function SourceCard({ source }: { source: Source }) {
   };
 
   const handleFetchNow = async () => {
+    if (isManualCsvSource) {
+      setFetchResult("Manual source: use 'Sync CSV Files' on Home or 'RFPMart CSV Upload' in Admin.");
+      return;
+    }
+
     setIsFetching(true);
     setFetchResult(null);
     try {
@@ -388,21 +395,46 @@ function SourceCard({ source }: { source: Source }) {
 
       {/* Fetch Result */}
       {fetchResult && (
+        (() => {
+          const isFailure = fetchResult.startsWith("Error") || fetchResult.startsWith("Failed");
+          const isInfo = fetchResult.startsWith("Manual source:");
+          return (
         <div
           style={{
             padding: "0.5rem",
             marginBottom: "1rem",
-            background: fetchResult.startsWith("Error") || fetchResult.startsWith("Failed")
+            background: isFailure
               ? "rgba(239, 68, 68, 0.1)"
-              : "rgba(34, 197, 94, 0.1)",
+              : isInfo
+                ? "rgba(59, 130, 246, 0.12)"
+                : "rgba(34, 197, 94, 0.1)",
             borderRadius: "0.25rem",
             fontSize: "0.875rem",
-            color: fetchResult.startsWith("Error") || fetchResult.startsWith("Failed")
+            color: isFailure
               ? "#B91C1C"
-              : "#15803D",
+              : isInfo
+                ? "#1D4ED8"
+                : "#15803D",
           }}
         >
           {fetchResult}
+        </div>
+          );
+        })()
+      )}
+
+      {isManualCsvSource && (
+        <div
+          style={{
+            padding: "0.5rem",
+            marginBottom: "1rem",
+            background: "rgba(59, 130, 246, 0.12)",
+            borderRadius: "0.25rem",
+            fontSize: "0.875rem",
+            color: "#1D4ED8",
+          }}
+        >
+          Manual source: use &quot;Sync CSV Files&quot; on Home or &quot;RFPMart CSV Upload&quot; in Admin.
         </div>
       )}
 
@@ -410,19 +442,19 @@ function SourceCard({ source }: { source: Source }) {
       <div style={{ display: "flex", gap: "0.5rem" }}>
         <button
           onClick={handleFetchNow}
-          disabled={isFetching || !source.enabled}
+          disabled={isFetching || !canFetchNow}
           style={{
             padding: "0.5rem 1rem",
             fontSize: "0.875rem",
-            background: source.enabled ? "var(--primary, #3B82F6)" : "#9CA3AF",
+            background: canFetchNow ? "var(--primary, #3B82F6)" : "#9CA3AF",
             color: "white",
             border: "none",
             borderRadius: "0.375rem",
-            cursor: isFetching || !source.enabled ? "not-allowed" : "pointer",
+            cursor: isFetching || !canFetchNow ? "not-allowed" : "pointer",
             opacity: isFetching ? 0.7 : 1,
           }}
         >
-          {isFetching ? "Fetching..." : "Fetch Now"}
+          {isFetching ? "Fetching..." : isManualCsvSource ? "Manual Only" : "Fetch Now"}
         </button>
       </div>
 
