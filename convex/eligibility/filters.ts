@@ -16,6 +16,7 @@ import {
   ONSITE_HARD_KEYWORDS,
   ONSITE_SOFT_KEYWORDS,
   OUT_OF_SCOPE_KEYWORDS,
+  SPECIALIST_VENDOR_REQUIRED_KEYWORDS,
   VALID_CATEGORY_KEYWORDS,
   VALID_NAICS_CODES,
   MINIMUM_DAYS_DEFAULT,
@@ -527,6 +528,20 @@ export function checkOutOfScope(
   const title = opportunity.title.toLowerCase();
   const description = opportunity.fullDescription.toLowerCase();
   const text = getSearchableText(opportunity);
+
+  // Specialist-vendor requirement is an immediate hard out-of-scope signal.
+  const specialistMatch = findKeywords(text, SPECIALIST_VENDOR_REQUIRED_KEYWORDS);
+  if (specialistMatch.matched.length > 0) {
+    return {
+      ruleId: "out_of_scope",
+      ruleName: "Out-of-Scope Domain",
+      passed: false,
+      outcome: "fail",
+      severity: "hard",
+      evidence: `Specialist vendor requirement detected: "${specialistMatch.matched.join(", ")}". ${specialistMatch.evidence}`,
+      matchedKeywords: specialistMatch.matched,
+    };
+  }
 
   // Check title - primary focus indicator
   const titleMatch = findKeywords(title, OUT_OF_SCOPE_KEYWORDS);
