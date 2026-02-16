@@ -110,9 +110,9 @@ export function evaluateEligibility(
   // Determine final status
   const status = determineStatus(filterResults);
 
-  // Build reasons from failed/flagged filters
+  // Build reasons from all filters (pass/fail/flag) so frontend can render
+  // complete scoring context without inferring missing pass states.
   const reasons: EligibilityReason[] = filterResults
-    .filter((r) => r.outcome !== "pass")
     .map((r) => ({
       ruleId: r.ruleId,
       ruleName: r.ruleName,

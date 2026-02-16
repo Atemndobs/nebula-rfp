@@ -140,20 +140,17 @@ export const evaluateRfp = async (
   }
   
   const maxScore = effectivelyEnabledCriteriaCount;
-  let isFit = false;
-  if (maxScore === 0) {
-    isFit = false;
-  } else if (maxScore === 1) {
-    isFit = score === 1;
-  } else { 
-    isFit = score >= 2; 
-  }
+  const defaultPolicyThreshold = 4; // eval-rulea.md default (4/6)
+  const scaledThreshold = maxScore > 0
+    ? Math.max(1, Math.ceil((defaultPolicyThreshold / 6) * maxScore))
+    : 0;
+  const isFit = maxScore > 0 && score >= scaledThreshold;
 
   let reasoning = `Overall score ${score}/${maxScore}. `;
   if (maxScore === 0) {
     reasoning += "No criteria effectively enabled for evaluation. ";
   } else {
-     reasoning += `${isFit ? 'Good potential fit.' : 'Likely not a fit.'} `;
+     reasoning += `${isFit ? 'Good potential fit.' : 'Likely not a fit.'} (threshold ${scaledThreshold}) `;
   }
   
   if (overallAiProviderError) {

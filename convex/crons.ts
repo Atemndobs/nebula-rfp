@@ -26,4 +26,12 @@ crons.daily(
   internal.sources.resetDailyCounts
 );
 
+// Enrich RFPMart CSV records with full descriptions (every 30 minutes)
+crons.interval(
+  "enrich-rfpmart-csv",
+  { minutes: 30 },
+  internal.ingestion.rfpmartEnrich.enrichPending,
+  { batchSize: 10 }
+);
+
 export default crons;

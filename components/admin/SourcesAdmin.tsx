@@ -13,6 +13,7 @@ interface Source {
   nextFetchAt?: number;
   rateLimitPerMinute: number;
   rateLimitPerHour: number;
+  rateLimitPerDay?: number; // For sources with daily quotas (e.g., SAM.gov)
   status: "healthy" | "warning" | "error" | "disabled";
   errorCount: number;
   lastError?: string;
@@ -26,9 +27,12 @@ export function SourcesAdmin() {
   const healthSummary = useQuery(api.sources.getHealthSummary);
   const initializeDefaults = useMutation(api.sources.initializeDefaults);
   const evaluateAllPending = useMutation(api.eligibilityRules.evaluateAllPending);
+  const migrateSamGov = useMutation(api.sources.migrateSamGovToDaily);
   const [isInitializing, setIsInitializing] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<string | null>(null);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrateResult, setMigrateResult] = useState<string | null>(null);
 
   const handleInitialize = async () => {
     setIsInitializing(true);
@@ -51,6 +55,23 @@ export function SourcesAdmin() {
       setEvalResult(`Evaluation failed: ${error}`);
     } finally {
       setIsEvaluating(false);
+    }
+  };
+
+  const handleMigrateSamGov = async () => {
+    setIsMigrating(true);
+    setMigrateResult(null);
+    try {
+      const result = await migrateSamGov({});
+      if (result.success) {
+        setMigrateResult(result.message || "Migration successful!");
+      } else {
+        setMigrateResult(`Migration failed: ${'error' in result ? result.error : "Unknown error"}`);
+      }
+    } catch (error) {
+      setMigrateResult(`Migration failed: ${error}`);
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -105,7 +126,7 @@ export function SourcesAdmin() {
         </div>
       )}
 
-      {/* Evaluate All Button */}
+      {/* Action Buttons */}
       <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <button
           onClick={handleEvaluateAll}
@@ -125,6 +146,27 @@ export function SourcesAdmin() {
         {evalResult && (
           <span style={{ fontSize: "0.875rem", color: evalResult.includes("failed") ? "#EF4444" : "#10B981" }}>
             {evalResult}
+          </span>
+        )}
+
+        <button
+          onClick={handleMigrateSamGov}
+          disabled={isMigrating}
+          style={{
+            padding: "0.5rem 1rem",
+            background: isMigrating ? "#9CA3AF" : "#3B82F6",
+            color: "white",
+            border: "none",
+            borderRadius: "0.375rem",
+            cursor: isMigrating ? "not-allowed" : "pointer",
+            fontWeight: 500,
+          }}
+        >
+          {isMigrating ? "Migrating..." : "Update SAM.gov to Daily Quota"}
+        </button>
+        {migrateResult && (
+          <span style={{ fontSize: "0.875rem", color: migrateResult.includes("failed") ? "#EF4444" : "#10B981" }}>
+            {migrateResult}
           </span>
         )}
       </div>
@@ -397,7 +439,13 @@ function SourceCard({ source }: { source: Source }) {
         }}
       >
         <span>Refresh: {source.refreshIntervalMinutes}min</span>
-        <span>Rate: {source.rateLimitPerMinute}/min, {source.rateLimitPerHour}/hr</span>
+        {source.rateLimitPerDay ? (
+          <span>
+            Daily Quota: {source.fetchedToday}/{source.rateLimitPerDay} ({source.rateLimitPerDay - source.fetchedToday} remaining)
+          </span>
+        ) : (
+          <span>Rate: {source.rateLimitPerMinute}/min, {source.rateLimitPerHour}/hr</span>
+        )}
       </div>
     </div>
   );

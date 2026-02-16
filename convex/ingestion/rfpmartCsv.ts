@@ -3,6 +3,7 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { requireActionManagerOrAdmin } from "../lib/auth";
 
 /**
  * Parse and ingest RFPMart CSV data
@@ -192,6 +193,7 @@ function normalizeRow(row: ParsedRfpMartRow) {
     sourceUrl: row.url,
     evidenceSnippets: [],
     source: "rfpmart-csv",
+    needsDetailFetch: true, // Flag for background enrichment - CSV doesn't include descriptions
   };
 }
 
@@ -204,46 +206,59 @@ export const processCSV = internalAction({
     filterItOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const rows = parseCsv(args.csvContent);
+    const rawRows = parseCsv(args.csvContent);
     const errors: string[] = [];
+
+    // 1. Filter and Deduplicate rows in memory before processing
+    // This prevents "OptimisticConcurrencyControlFailure" from duplicate rows in the same file
+    const uniqueRowsMap = new Map<string, ParsedRfpMartRow>();
+    let skippedCount = 0;
+
+    for (const row of rawRows) {
+      // Filter IT only if requested
+      if (args.filterItOnly && !isItRelevant(row.id)) {
+        skippedCount++;
+        continue;
+      }
+      // Dedupe by ID - keep the last occurrence or first? Let's keep last (latest state)
+      uniqueRowsMap.set(row.id, row);
+    }
+
+    const uniqueRows = Array.from(uniqueRowsMap.values());
+    const duplicateInFileCount = rawRows.length - uniqueRows.length - skippedCount;
 
     let newCount = 0;
     let updatedCount = 0;
-    let skippedCount = 0;
     let evaluatedCount = 0;
 
-    for (const row of rows) {
+    // 2. Process in Batches
+    // Batch size of 50 is safe for Convex mutations (usually limit is near 8MB or 5s execution)
+    const BATCH_SIZE = 50;
+
+    for (let i = 0; i < uniqueRows.length; i += BATCH_SIZE) {
+      const batchRows = uniqueRows.slice(i, i + BATCH_SIZE);
+      const batchOps = batchRows.map((row) => normalizeRow(row));
+
       try {
-        // Optionally filter to IT-relevant RFPs only
-        if (args.filterItOnly && !isItRelevant(row.id)) {
-          skippedCount++;
-          continue;
+        // Use the batched mutation
+        const results = await ctx.runMutation(internal.opportunities.upsertBatch, {
+          opportunities: batchOps,
+        });
+
+        // Tally results
+        for (const res of results) {
+          if (res.action === "inserted") newCount++;
+          else updatedCount++;
         }
 
-        const normalized = normalizeRow(row);
-        const result = await ctx.runMutation(
-          internal.opportunities.upsert,
-          normalized
-        );
-
-        if (result.action === "inserted") {
-          newCount++;
-        } else {
-          updatedCount++;
-        }
-
-        // Auto-evaluate the opportunity for eligibility
-        try {
-          await ctx.runMutation(internal.eligibilityRules.evaluateOpportunityInternal, {
-            opportunityId: result.id,
-          });
-          evaluatedCount++;
-        } catch (evalError) {
-          // Don't fail the whole ingest if evaluation fails
-          console.error(`Evaluation failed for ${row.id}:`, evalError);
-        }
-      } catch (error) {
-        errors.push(`Failed to process ${row.id}: ${error}`);
+        // Note: Evaluation is now handled asynchronously by the frontend's auto-evaluate
+        // or by calling evaluateAllPending after upload completes.
+        // This prevents timeout issues with large CSV files.
+        evaluatedCount = 0; // Will be evaluated async
+      } catch (batchError) {
+        console.error(`Batch failed at index ${i}:`, batchError);
+        const message = batchError instanceof Error ? batchError.message : String(batchError);
+        errors.push(`Batch failed (rows ${i + 1}-${i + batchRows.length}): ${message}`);
       }
     }
 
@@ -253,7 +268,7 @@ export const processCSV = internalAction({
       status: errors.length > 5 ? "warning" : "healthy",
       errorCount: errors.length,
       lastFetchAt: Date.now(),
-      fetchedCount: rows.length,
+      fetchedCount: rawRows.length,
       lastError: errors.length > 0 ? errors[0] : undefined,
     });
 
@@ -261,17 +276,17 @@ export const processCSV = internalAction({
     await ctx.runMutation(internal.ingestion.logs.create, {
       source: "rfpmart-csv",
       status: errors.length > 0 ? "partial" : "success",
-      fetchedCount: rows.length,
+      fetchedCount: rawRows.length,
       newCount,
       updatedCount,
-      duplicateCount: 0,
+      duplicateCount: duplicateInFileCount,
       errorCount: errors.length,
       errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
     });
 
     return {
       success: true,
-      total: rows.length,
+      total: rawRows.length,
       new: newCount,
       updated: updatedCount,
       evaluated: evaluatedCount,
@@ -284,9 +299,6 @@ export const processCSV = internalAction({
 
 /**
  * Public action to upload and process CSV
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
- * Currently allowing unauthenticated uploads for development convenience.
  */
 export const uploadCSV = action({
   args: {
@@ -305,12 +317,7 @@ export const uploadCSV = action({
     errors: number;
     errorMessages: string[];
   }> => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
+    await requireActionManagerOrAdmin(ctx);
 
     return await ctx.runAction(internal.ingestion.rfpmartCsv.processCSV, args);
   },

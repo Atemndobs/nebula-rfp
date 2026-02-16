@@ -110,6 +110,7 @@ export interface FilterState {
   keyword: string;
   maxDeadline: string; 
   showOnlyFit: boolean;
+  hideOutliers: boolean;
 }
 
 export interface FilterControlsProps {
@@ -165,9 +166,11 @@ export interface SelectionControlsProps {
   onSelectBestFits: () => void;
   onDeselectAll: () => void;
   onExportSelectedToCsv: () => void;
+  onSyncCsvFiles: (files: File[]) => Promise<void>;
   hasGoodFitsDisplayed: boolean;
   onManualRefresh: () => void;
   isRefreshing: boolean;
+  isSyncingCsv: boolean;
   lastSuccessfulFetchTime: number | null;
   nextScheduledRefreshTime: number | null;
   autoRefreshIntervalHours: number;
@@ -214,6 +217,7 @@ export interface AdminViewProps {
   criteriaConfig: Record<EvaluationCriterionKey, NebulaLogixCriterion>;
   onToggleMasterCriterion: (criterionKey: EvaluationCriterionKey, isEnabled: boolean) => void;
   onToggleCriterionItem: (criterionKey: EvaluationCriterionKey, itemValue: string, isEnabled: boolean) => void;
+  onAddCriterionItem: (criterionKey: EvaluationCriterionKey, itemValue: string) => void;
 
   aiSettings: AiSettings;
   onUpdateAiSettings: (newSettings: Partial<AiSettings> | ((prev: AiSettings) => AiSettings)) => void;

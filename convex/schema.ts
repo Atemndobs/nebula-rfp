@@ -79,10 +79,13 @@ export default defineSchema({
     source: v.string(),
     ingestedAt: v.number(),
     lastUpdatedAt: v.number(),
+    // Flag for opportunities where full description fetch failed (SAM.gov description URLs)
+    needsDetailFetch: v.optional(v.boolean()),
   })
     .index("by_source", ["source"])
     .index("by_due_date", ["dueDate"])
     .index("by_posted_date", ["postedDate"])
+    .index("by_needs_detail_fetch", ["needsDetailFetch", "source"])
     .searchIndex("search_title", {
       searchField: "title",
       filterFields: ["source"],
@@ -98,6 +101,7 @@ export default defineSchema({
     nextFetchAt: v.optional(v.number()),
     rateLimitPerMinute: v.number(),
     rateLimitPerHour: v.number(),
+    rateLimitPerDay: v.optional(v.number()), // For sources with daily quotas (e.g., SAM.gov)
     status: v.union(
       v.literal("healthy"),
       v.literal("warning"),

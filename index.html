@@ -101,17 +101,31 @@
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
+      const isLocalDevHost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
+          if (isLocalDevHost) {
+            navigator.serviceWorker.getRegistrations()
+              .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+              .then(() => {
+                console.log('Service workers unregistered for local development.');
+              })
+              .catch((error) => {
+                console.warn('Could not unregister service workers in local development:', error);
+              });
+            return;
+          }
+
           try {
             // Use an absolute path for the service worker to ensure correct registration
             const serviceWorkerUrl = '/service-worker.js';
-            
+
             navigator.serviceWorker.register(serviceWorkerUrl)
-              .then(registration => {
+              .then((registration) => {
                 console.log('Service Worker registered with scope:', registration.scope, 'From URL:', serviceWorkerUrl);
               })
-              .catch(error => {
+              .catch((error) => {
                 console.error('Service Worker registration failed (promise rejection):', error, 'Attempted URL:', serviceWorkerUrl);
               });
           } catch (e) {

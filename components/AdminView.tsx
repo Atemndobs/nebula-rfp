@@ -4,7 +4,8 @@ import { GEMINI_ENV_API_KEY_ERROR_MESSAGE, DEFAULT_AI_CORE_PROMPT_TEMPLATE, DEFA
 import LoadingSpinner from './LoadingSpinner';
 import { fetchOllamaModels } from '../services/ollamaService';
 import { fetchLmStudioModels } from '../services/lmStudioService';
-import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, ApiKeyManager, CsvUpload } from './admin';
+import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, CsvUpload, SamGovManager, DatabaseSettings } from './admin';
+import { buildDefaultAiSettings } from '../services/aiSettingsStorage';
 
 // Tab types
 type AdminTab = 'data' | 'ai' | 'evaluation' | 'settings';
@@ -81,6 +82,7 @@ const AdminView: React.FC<AdminViewProps> = ({
   criteriaConfig,
   onToggleMasterCriterion,
   onToggleCriterionItem,
+  onAddCriterionItem,
   aiSettings,
   onUpdateAiSettings,
   onAutoImproveCorePrompt,
@@ -95,6 +97,7 @@ const AdminView: React.FC<AdminViewProps> = ({
 
   const [editableCorePrompt, setEditableCorePrompt] = useState(aiSettings.corePromptTemplate);
   const [editableSystemInstructions, setEditableSystemInstructions] = useState<Partial<Record<EvaluationCriterionKey, string>>>({...aiSettings.systemInstructions});
+  const [newCriterionItems, setNewCriterionItems] = useState<Partial<Record<EvaluationCriterionKey, string>>>({});
   const [localRefreshInterval, setLocalRefreshInterval] = useState<string>(String(autoRefreshIntervalHours));
 
   const [localProviderConfigs, setLocalProviderConfigs] = useState<Partial<Record<AiProvider, ProviderConfig>>>(
@@ -124,7 +127,7 @@ const AdminView: React.FC<AdminViewProps> = ({
 
   useEffect(() => {
     const currentConfigs = JSON.parse(JSON.stringify(aiSettings.providerConfigs));
-    const defaultSettings = getDefaultAiSettings().providerConfigs;
+    const defaultSettings = buildDefaultAiSettings().providerConfigs;
     for (const providerKey in defaultSettings) {
         const pKey = providerKey as AiProvider;
         if (!currentConfigs[pKey]) {
@@ -274,26 +277,6 @@ const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
-  const getDefaultAiSettings = (): AiSettings => {
-      const defaultConfigs: Partial<Record<AiProvider, ProviderConfig>> = {};
-      (Object.keys(AiProvider) as Array<keyof typeof AiProvider>).forEach(key => {
-          const providerKey = AiProvider[key];
-          defaultConfigs[providerKey] = {
-              apiKey: '',
-              model: AVAILABLE_AI_PROVIDERS_CONFIG[providerKey]?.defaultModel || '',
-              baseUrl: providerKey === AiProvider.OLLAMA ? 'http://localhost:11434' : (providerKey === AiProvider.LM_STUDIO ? 'http://localhost:1234/v1' : undefined),
-          };
-      });
-
-      return {
-          selectedProvider: AiProvider.GEMINI,
-          providerConfigs: defaultConfigs,
-          corePromptTemplate: DEFAULT_AI_CORE_PROMPT_TEMPLATE,
-          systemInstructions: { ...DEFAULT_SYSTEM_INSTRUCTIONS },
-          useAiForEvaluation: false,
-      };
-  };
-
   const currentSelectedProviderConfig = AVAILABLE_AI_PROVIDERS_CONFIG[aiSettings.selectedProvider];
   const isCurrentProviderConfigured = useMemo(() => {
     const provider = aiSettings.selectedProvider;
@@ -319,32 +302,54 @@ const AdminView: React.FC<AdminViewProps> = ({
     const itemsToRender: CriterionItem[] = criterion.keywords || criterion.preferredCategories || [];
     const useTwoColumns = itemsToRender.length > 8;
 
-    if (itemsToRender.length === 0 && criterion.detailsSummary) {
-        return <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">{criterion.detailsSummary}</p>;
-    }
-    if (itemsToRender.length === 0) {
-        return <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">No configurable sub-items for this criterion.</p>;
-    }
-
     return (
-      <div className={`pl-2 max-h-60 overflow-y-auto ${useTwoColumns ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4' : 'space-y-1.5'}`}>
-        {itemsToRender.map(item => (
-          <label
-            key={item.value}
-            htmlFor={`criterion-${criterion.key}-${item.value}`}
-            className="flex items-center cursor-pointer p-1 hover:bg-accents-2 dark:hover:bg-dark-accents-8/30 rounded"
+      <div className="space-y-3">
+        {itemsToRender.length === 0 && (
+          <p className="pl-2 text-xs text-geist-secondary dark:text-dark-geist-secondary">
+            {criterion.detailsSummary || 'No sub-items configured yet. Add one below to customize this criterion.'}
+          </p>
+        )}
+        <div className={`pl-2 max-h-60 overflow-y-auto ${useTwoColumns ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4' : 'space-y-1.5'}`}>
+          {itemsToRender.map(item => (
+            <label
+              key={item.value}
+              htmlFor={`criterion-${criterion.key}-${item.value}`}
+              className="flex items-center cursor-pointer p-1 hover:bg-accents-2 dark:hover:bg-dark-accents-8/30 rounded"
+            >
+              <input
+                type="checkbox"
+                id={`criterion-${criterion.key}-${item.value}`}
+                checked={item.enabled}
+                onChange={(e) => onToggleCriterionItem(criterion.key, item.value, e.target.checked)}
+                disabled={!criterion.isMasterEnabled}
+                className="h-3.5 w-3.5 rounded border-accents-3 dark:border-accents-5 text-vercel-blue focus:ring-vercel-blue focus:ring-1 focus:ring-offset-0 bg-white dark:bg-dark-accents-1"
+              />
+              <span className={`ml-2 text-xs ${!criterion.isMasterEnabled ? 'text-accents-4 dark:text-accents-5' : 'text-geist-secondary dark:text-dark-geist-secondary'}`}>{item.value}</span>
+            </label>
+          ))}
+        </div>
+        <div className="pl-2 flex items-center gap-2">
+          <input
+            type="text"
+            value={newCriterionItems[criterion.key] || ''}
+            onChange={(e) => setNewCriterionItems(prev => ({ ...prev, [criterion.key]: e.target.value }))}
+            placeholder="Add keyword/rule term..."
+            className={`${inputBaseClasses} flex-1 text-xs`}
+          />
+          <button
+            onClick={() => {
+              const value = (newCriterionItems[criterion.key] || '').trim();
+              if (!value) return;
+              onAddCriterionItem(criterion.key, value);
+              setNewCriterionItems(prev => ({ ...prev, [criterion.key]: '' }));
+            }}
+            className={primaryButtonClasses}
+            disabled={!criterion.isMasterEnabled}
+            title={criterion.isMasterEnabled ? 'Add custom term to this criterion' : 'Enable criterion first'}
           >
-            <input
-              type="checkbox"
-              id={`criterion-${criterion.key}-${item.value}`}
-              checked={item.enabled}
-              onChange={(e) => onToggleCriterionItem(criterion.key, item.value, e.target.checked)}
-              disabled={!criterion.isMasterEnabled}
-              className="h-3.5 w-3.5 rounded border-accents-3 dark:border-accents-5 text-vercel-blue focus:ring-vercel-blue focus:ring-1 focus:ring-offset-0 bg-white dark:bg-dark-accents-1"
-            />
-            <span className={`ml-2 text-xs ${!criterion.isMasterEnabled ? 'text-accents-4 dark:text-accents-5' : 'text-geist-secondary dark:text-dark-geist-secondary'}`}>{item.value}</span>
-          </label>
-        ))}
+            Add
+          </button>
+        </div>
       </div>
     );
   };
@@ -365,6 +370,9 @@ const AdminView: React.FC<AdminViewProps> = ({
           <div className="space-y-8">
             <SourcesAdmin />
             <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
+              <SamGovManager />
+            </div>
+            <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
               <CsvUpload />
             </div>
             <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
@@ -376,13 +384,8 @@ const AdminView: React.FC<AdminViewProps> = ({
       case 'ai':
         return (
           <div className="space-y-8">
-            {/* AI Provider Settings */}
-            <section>
-              <ApiKeyManager />
-            </section>
-
             {/* Global AI Analysis Settings */}
-            <section className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
+            <section>
               <h3 className="text-lg font-medium text-geist-foreground dark:text-dark-geist-foreground mb-1">
                 Global AI Analysis Settings
               </h3>
@@ -775,16 +778,9 @@ const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </section>
 
-            {/* Future Settings Placeholder */}
+            {/* Database Management */}
             <section className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
-              <h3 className="text-lg font-medium text-geist-foreground dark:text-dark-geist-foreground mb-3">
-                Other Application Settings
-              </h3>
-              <div className="p-6 bg-accents-1 dark:bg-dark-accents-2 border border-accents-2 dark:border-dark-accents-2 rounded-md text-center">
-                <p className="text-geist-secondary dark:text-dark-geist-secondary">
-                  This area is reserved for future application configurations.
-                </p>
-              </div>
+              <DatabaseSettings />
             </section>
           </div>
         );

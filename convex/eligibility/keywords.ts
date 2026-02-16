@@ -204,6 +204,19 @@ export const OUT_OF_SCOPE_KEYWORDS = [
   "custodial services",
 ];
 
+// Requests that require niche specialist vendors outside Nebula's core model.
+// These are treated as hard out-of-scope signals.
+export const SPECIALIST_VENDOR_REQUIRED_KEYWORDS = [
+  "expert vendor",
+  "specialized vendor",
+  "specialist vendor",
+  "subject matter expert",
+  "domain expert",
+  "niche expertise required",
+  "oem certified partner",
+  "exclusive implementation partner",
+];
+
 // ============================================
 // Filter 7: Category Must Be Software / Digital
 // ============================================
@@ -342,7 +355,7 @@ export const DEFAULT_ELIGIBILITY_RULES = [
     ruleId: "out_of_scope",
     name: "Out-of-Scope Domain",
     description:
-      "Detects if RFP is primarily for physical infrastructure (construction, HVAC, etc.)",
+      "Detects if RFP is primarily for physical infrastructure or requires niche specialist vendors outside core cloud/serverless scope",
     enabled: true,
     defaultOutcome: "REJECTED" as const,
     allowOverride: false,

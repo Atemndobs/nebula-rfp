@@ -55,9 +55,11 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
   onSelectBestFits,
   onDeselectAll,
   onExportSelectedToCsv,
+  onSyncCsvFiles,
   hasGoodFitsDisplayed,
   onManualRefresh,
   isRefreshing,
+  isSyncingCsv,
   lastSuccessfulFetchTime,
   nextScheduledRefreshTime,
   autoRefreshIntervalHours,
@@ -67,6 +69,7 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
   selectedAiProvider, 
 }) => {
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+  const syncCsvInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (selectAllCheckboxRef.current) {
@@ -88,8 +91,29 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
     }
   `;
 
+  const handlePickCsvFiles = () => {
+    if (isRefreshing || isSyncingCsv) return;
+    syncCsvInputRef.current?.click();
+  };
+
+  const handleCsvInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    if (files.length === 0) return;
+    await onSyncCsvFiles(files);
+    event.target.value = '';
+  };
+
   return (
     <div className="my-6 p-4 bg-white dark:bg-dark-accents-1 border border-accents-2 dark:border-dark-accents-2 rounded-lg shadow-vercel-md">
+      <input
+        ref={syncCsvInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        multiple
+        onChange={handleCsvInputChange}
+        className="hidden"
+        aria-label="Select CSV files to sync"
+      />
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
           <input
@@ -154,6 +178,14 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
             title="Export selected RFPs to CSV file"
           >
             Export Selected CSV
+          </button>
+          <button
+            onClick={handlePickCsvFiles}
+            disabled={isRefreshing || isSyncingCsv}
+            className={secondaryButtonClasses}
+            title="Pick one or more CSV files and sync them into the database"
+          >
+            {isSyncingCsv ? 'Syncing CSV...' : 'Sync CSV Files'}
           </button>
         </div>
       </div>

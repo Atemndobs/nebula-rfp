@@ -1,5 +1,6 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./lib/auth";
 
 /**
  * List all data sources
@@ -12,9 +13,38 @@ export const list = query({
 });
 
 /**
+ * List only enabled sources (for filtering displayed opportunities)
+ */
+export const listEnabled = query({
+  args: {},
+  handler: async (ctx) => {
+    const sources = await ctx.db.query("sources").take(50);
+    return sources
+      .filter((s) => s.enabled)
+      .map((s) => ({
+        name: s.name,
+        displayName: s.displayName,
+      }));
+  },
+});
+
+/**
  * Get a source by name
  */
 export const getByName = query({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("sources")
+      .withIndex("by_name", (q) => q.eq("name", args.name))
+      .first();
+  },
+});
+
+/**
+ * Internal query to get a source by name (for use in actions)
+ */
+export const getByNameInternal = internalQuery({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -52,18 +82,11 @@ export const getHealthSummary = query({
 
 /**
  * Initialize default sources (run once on setup)
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
  */
 export const initializeDefaults = mutation({
   args: {},
   handler: async (ctx) => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
+    await requireAdmin(ctx);
 
     // Check if sources already exist
     const existing = await ctx.db.query("sources").take(1);
@@ -77,8 +100,9 @@ export const initializeDefaults = mutation({
         displayName: "SAM.gov",
         enabled: true,
         refreshIntervalMinutes: 360, // 6 hours
-        rateLimitPerMinute: 10,
-        rateLimitPerHour: 100,
+        rateLimitPerMinute: 0, // Not applicable - uses daily quota
+        rateLimitPerHour: 0, // Not applicable - uses daily quota
+        rateLimitPerDay: 1000, // SAM.gov API daily quota
         status: "healthy" as const,
         errorCount: 0,
         totalFetched: 0,
@@ -132,8 +156,6 @@ export const initializeDefaults = mutation({
 
 /**
  * Update source configuration
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
  */
 export const update = mutation({
   args: {
@@ -142,21 +164,10 @@ export const update = mutation({
     refreshIntervalMinutes: v.optional(v.number()),
     rateLimitPerMinute: v.optional(v.number()),
     rateLimitPerHour: v.optional(v.number()),
+    rateLimitPerDay: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
-    // const user = await ctx.db
-    //   .query("users")
-    //   .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-    //   .first();
-    // if (!user || user.role !== "admin") {
-    //   throw new Error("Admin access required");
-    // }
+    await requireAdmin(ctx);
 
     const { id, ...updates } = args;
 
@@ -246,5 +257,36 @@ export const resetDailyCounts = internalMutation({
     }
 
     return { success: true, count: sources.length };
+  },
+});
+
+/**
+ * Migrate SAM.gov source to use daily quota
+ * Run this once to update existing SAM.gov source record
+ */
+export const migrateSamGovToDaily = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const samGov = await ctx.db
+      .query("sources")
+      .withIndex("by_name", (q) => q.eq("name", "sam.gov"))
+      .first();
+
+    if (!samGov) {
+      return { success: false, error: "SAM.gov source not found" };
+    }
+
+    await ctx.db.patch(samGov._id, {
+      rateLimitPerMinute: 0, // Not applicable - uses daily quota
+      rateLimitPerHour: 0, // Not applicable - uses daily quota
+      rateLimitPerDay: 1000, // SAM.gov API daily quota
+    });
+
+    return {
+      success: true,
+      message: "SAM.gov source updated to use daily quota (1000/day)",
+    };
   },
 });
