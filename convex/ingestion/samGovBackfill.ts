@@ -1,6 +1,7 @@
 import { internalAction, action } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { requireActionAdmin } from "../lib/auth";
 
 /**
  * Backfill full descriptions for existing SAM.gov opportunities
@@ -218,9 +219,7 @@ export const triggerBackfill = action({
     hasMore?: boolean;
     remainingCount?: number;
   }> => {
-    // TODO: Add auth check in production
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) throw new Error("Not authenticated");
+    await requireActionAdmin(ctx);
 
     return await ctx.runAction(internal.ingestion.samGovBackfill.backfillDescriptions, args);
   },

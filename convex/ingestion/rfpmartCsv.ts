@@ -3,6 +3,7 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { requireActionManagerOrAdmin } from "../lib/auth";
 
 /**
  * Parse and ingest RFPMart CSV data
@@ -298,9 +299,6 @@ export const processCSV = internalAction({
 
 /**
  * Public action to upload and process CSV
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
- * Currently allowing unauthenticated uploads for development convenience.
  */
 export const uploadCSV = action({
   args: {
@@ -319,12 +317,7 @@ export const uploadCSV = action({
     errors: number;
     errorMessages: string[];
   }> => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
+    await requireActionManagerOrAdmin(ctx);
 
     return await ctx.runAction(internal.ingestion.rfpmartCsv.processCSV, args);
   },
