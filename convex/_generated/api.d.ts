@@ -19,6 +19,7 @@ import type * as ingestion_rfpmart from "../ingestion/rfpmart.js";
 import type * as ingestion_rfpmartCsv from "../ingestion/rfpmartCsv.js";
 import type * as ingestion_rfpmartEnrich from "../ingestion/rfpmartEnrich.js";
 import type * as ingestion_rfpmartEnrichQueries from "../ingestion/rfpmartEnrichQueries.js";
+import type * as ingestion_rfpmartScraper from "../ingestion/rfpmartScraper.js";
 import type * as ingestion_samGov from "../ingestion/samGov.js";
 import type * as ingestion_samGovBackfill from "../ingestion/samGovBackfill.js";
 import type * as ingestion_scraper from "../ingestion/scraper.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "ingestion/rfpmartCsv": typeof ingestion_rfpmartCsv;
   "ingestion/rfpmartEnrich": typeof ingestion_rfpmartEnrich;
   "ingestion/rfpmartEnrichQueries": typeof ingestion_rfpmartEnrichQueries;
+  "ingestion/rfpmartScraper": typeof ingestion_rfpmartScraper;
   "ingestion/samGov": typeof ingestion_samGov;
   "ingestion/samGovBackfill": typeof ingestion_samGovBackfill;
   "ingestion/scraper": typeof ingestion_scraper;
