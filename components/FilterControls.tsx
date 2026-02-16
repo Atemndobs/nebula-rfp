@@ -51,6 +51,13 @@ const FunnelIcon = () => ( // Plain funnel icon
   </svg>
 );
 
+const OutlierIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.007v.008H12v-.008z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86L1.82 18a2.25 2.25 0 001.93 3.375h16.5A2.25 2.25 0 0022.18 18L13.71 3.86a2.25 2.25 0 00-3.42 0z" />
+  </svg>
+);
+
 
 const FilterControls: React.FC<FilterControlsProps> = ({
   filters,
@@ -221,7 +228,31 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           />
         </div>
         
-        <div className="lg:col-span-2 md:col-span-3 sm:col-span-2 flex items-end space-x-2 h-full"> 
+        <div className="lg:col-span-2 md:col-span-3 sm:col-span-2 flex items-end gap-2 h-full flex-wrap"> 
+          <button
+            type="button"
+            onClick={() => onFilterChange('hideOutliers', !filters.hideOutliers)}
+            className={`${actionButtonBaseClasses}
+              ${filters.hideOutliers
+                ? 'bg-vercel-blue text-white border-vercel-blue hover:bg-opacity-90'
+                : 'bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground'
+              }`}
+            title="Hide specialist-vendor outliers"
+            aria-pressed={filters.hideOutliers}
+          >
+            <OutlierIcon />
+            <span className="hidden sm:inline">Hide Outliers</span>
+            <span className="sm:hidden">Outliers</span>
+            <input
+              type="checkbox"
+              id="hideOutliers"
+              name="hideOutliers"
+              checked={filters.hideOutliers}
+              onChange={handleInputChange}
+              className="sr-only"
+            />
+          </button>
+
           <button
             type="button"
             onClick={() => onFilterChange('showOnlyFit', !filters.showOnlyFit)}
