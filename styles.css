@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  mark {
+    @apply bg-mark-bg-light text-mark-text-light px-0.5 rounded-sm;
+  }
+
+  .dark mark {
+    @apply bg-mark-bg-dark text-mark-text-dark;
+  }
+}
