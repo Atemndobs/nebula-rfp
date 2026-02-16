@@ -4,7 +4,8 @@ import { GEMINI_ENV_API_KEY_ERROR_MESSAGE, DEFAULT_AI_CORE_PROMPT_TEMPLATE, DEFA
 import LoadingSpinner from './LoadingSpinner';
 import { fetchOllamaModels } from '../services/ollamaService';
 import { fetchLmStudioModels } from '../services/lmStudioService';
-import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, ApiKeyManager, CsvUpload, SamGovManager, DatabaseSettings } from './admin';
+import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, CsvUpload, SamGovManager, DatabaseSettings } from './admin';
+import { buildDefaultAiSettings } from '../services/aiSettingsStorage';
 
 // Tab types
 type AdminTab = 'data' | 'ai' | 'evaluation' | 'settings';
@@ -126,7 +127,7 @@ const AdminView: React.FC<AdminViewProps> = ({
 
   useEffect(() => {
     const currentConfigs = JSON.parse(JSON.stringify(aiSettings.providerConfigs));
-    const defaultSettings = getDefaultAiSettings().providerConfigs;
+    const defaultSettings = buildDefaultAiSettings().providerConfigs;
     for (const providerKey in defaultSettings) {
         const pKey = providerKey as AiProvider;
         if (!currentConfigs[pKey]) {
@@ -276,26 +277,6 @@ const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
-  const getDefaultAiSettings = (): AiSettings => {
-      const defaultConfigs: Partial<Record<AiProvider, ProviderConfig>> = {};
-      (Object.keys(AiProvider) as Array<keyof typeof AiProvider>).forEach(key => {
-          const providerKey = AiProvider[key];
-          defaultConfigs[providerKey] = {
-              apiKey: '',
-              model: AVAILABLE_AI_PROVIDERS_CONFIG[providerKey]?.defaultModel || '',
-              baseUrl: providerKey === AiProvider.OLLAMA ? 'http://localhost:11434' : (providerKey === AiProvider.LM_STUDIO ? 'http://localhost:1234/v1' : undefined),
-          };
-      });
-
-      return {
-          selectedProvider: AiProvider.GEMINI,
-          providerConfigs: defaultConfigs,
-          corePromptTemplate: DEFAULT_AI_CORE_PROMPT_TEMPLATE,
-          systemInstructions: { ...DEFAULT_SYSTEM_INSTRUCTIONS },
-          useAiForEvaluation: false,
-      };
-  };
-
   const currentSelectedProviderConfig = AVAILABLE_AI_PROVIDERS_CONFIG[aiSettings.selectedProvider];
   const isCurrentProviderConfigured = useMemo(() => {
     const provider = aiSettings.selectedProvider;
@@ -403,13 +384,8 @@ const AdminView: React.FC<AdminViewProps> = ({
       case 'ai':
         return (
           <div className="space-y-8">
-            {/* AI Provider Settings */}
-            <section>
-              <ApiKeyManager />
-            </section>
-
             {/* Global AI Analysis Settings */}
-            <section className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
+            <section>
               <h3 className="text-lg font-medium text-geist-foreground dark:text-dark-geist-foreground mb-1">
                 Global AI Analysis Settings
               </h3>

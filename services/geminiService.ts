@@ -1,46 +1,25 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { KeywordAnalysisResult, RfpDetail, RfpFitAnalysis, EvaluationCriterionKey, NebulaLogixCriterion, EvaluationResult, AiSettings, CriterionItem, AiProvider } from '../types';
+import { KeywordAnalysisResult, RfpDetail, RfpFitAnalysis, EvaluationCriterionKey, NebulaLogixCriterion, EvaluationResult, AiSettings, AiProvider } from '../types';
 import { GEMINI_ENV_API_KEY_ERROR_MESSAGE } from '../constants';
+import { getProviderConfigFromStorage } from "./aiSettingsStorage";
 
-// Storage key for API settings (must match ApiKeyManager)
-const API_SETTINGS_STORAGE_KEY = "rfp_ai_api_settings";
+const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 
-// Get API key dynamically - checks UI settings first, then env variable
+function getGeminiProviderConfig() {
+  return getProviderConfigFromStorage(AiProvider.GEMINI);
+}
+
+// Get API key dynamically - checks unified app settings first, then env variable.
 function getGeminiApiKey(): string | undefined {
-  try {
-    const stored = localStorage.getItem(API_SETTINGS_STORAGE_KEY);
-    if (stored) {
-      const settings = JSON.parse(stored);
-      // Support both old format (settings[provider]) and new format (settings.providers[provider])
-      const providerSettings = settings.providers?.[AiProvider.GEMINI] || settings[AiProvider.GEMINI];
-      if (providerSettings?.apiKey) {
-        return providerSettings.apiKey;
-      }
-    }
-  } catch (e) {
-    // Ignore localStorage errors
-  }
-  // Fallback to env variable
+  const storedApiKey = getGeminiProviderConfig()?.apiKey;
+  if (storedApiKey) return storedApiKey;
   return import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 }
 
-// Get model dynamically - checks UI settings first, then defaults
+// Get model dynamically - checks unified app settings first, then default.
 function getGeminiModel(): string {
-  try {
-    const stored = localStorage.getItem(API_SETTINGS_STORAGE_KEY);
-    if (stored) {
-      const settings = JSON.parse(stored);
-      // Support both old format and new format
-      const providerSettings = settings.providers?.[AiProvider.GEMINI] || settings[AiProvider.GEMINI];
-      if (providerSettings?.model) {
-        return providerSettings.model;
-      }
-    }
-  } catch (e) {
-    // Ignore localStorage errors
-  }
-  return "gemini-2.0-flash";
+  return getGeminiProviderConfig()?.model || DEFAULT_GEMINI_MODEL;
 }
 
 // Create AI client dynamically
