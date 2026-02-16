@@ -22,6 +22,7 @@ import { exportRfpsToCsv } from './services/csvExportService';
 import { ProviderLogo } from './components/AiProviderLogos';
 import { AuthButtons } from './components/AuthButtons';
 import LandingPage from './components/LandingPage';
+import { useSyncUser } from './hooks/useSyncUser';
 
 type Theme = 'light' | 'dark';
 
@@ -274,6 +275,8 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
 
 
 const App: React.FC = () => {
+  useSyncUser();
+
   const [allRfps, setAllRfps] = useState<RFPWithEvaluation[]>([]);
   const [convexEvaluationOverrides, setConvexEvaluationOverrides] = useState<Record<string, EvaluationResult>>({});
   const [convexEvaluatingIds, setConvexEvaluatingIds] = useState<Set<string>>(new Set());
