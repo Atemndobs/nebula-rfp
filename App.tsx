@@ -22,6 +22,7 @@ import { exportRfpsToCsv } from './services/csvExportService';
 import { ProviderLogo } from './components/AiProviderLogos';
 import { AuthButtons } from './components/AuthButtons';
 import LandingPage from './components/LandingPage';
+import { buildDefaultAiSettings, loadAiSettingsFromStorage, saveAiSettingsToStorage } from './services/aiSettingsStorage';
 import { useSyncUser } from './hooks/useSyncUser';
 
 type Theme = 'light' | 'dark';
@@ -125,26 +126,6 @@ const formatTimestampToReadable = (timestamp: number | null, type: 'full' | 'rel
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
-};
-
-const getDefaultAiSettings = (): AiSettings => {
-  const defaultConfigs: Partial<Record<AiProvider, ProviderConfig>> = {};
-  (Object.keys(AiProvider) as Array<keyof typeof AiProvider>).forEach(key => {
-    const providerKey = AiProvider[key];
-    defaultConfigs[providerKey] = {
-      apiKey: '',
-      model: AVAILABLE_AI_PROVIDERS_CONFIG[providerKey]?.defaultModel || '',
-      baseUrl: providerKey === AiProvider.OLLAMA ? 'http://localhost:11434' : (providerKey === AiProvider.LM_STUDIO ? 'http://localhost:1234/v1' : undefined),
-    };
-  });
-
-  return {
-    selectedProvider: AiProvider.GEMINI,
-    providerConfigs: defaultConfigs,
-    corePromptTemplate: DEFAULT_AI_CORE_PROMPT_TEMPLATE,
-    systemInstructions: { ...DEFAULT_SYSTEM_INSTRUCTIONS },
-    useAiForEvaluation: false,
-  };
 };
 
 // Recommendation Icons
@@ -607,11 +588,11 @@ const App: React.FC = () => {
   }, [convexOpportunities, isAutoEvaluatingPending, evaluateAllPending]);
 
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => {
-    const loadedSettings = loadFromLocalStorage<AiSettings>('aiSettings', getDefaultAiSettings());
+    const loadedSettings = loadAiSettingsFromStorage();
     console.log('[AI Settings] Loaded from localStorage:', loadedSettings);
     console.log('[AI Settings] useAiForEvaluation from storage:', loadedSettings.useAiForEvaluation);
     // Ensure loaded settings have all provider keys from AVAILABLE_AI_PROVIDERS_CONFIG
-    const completeProviderConfigs = { ...getDefaultAiSettings().providerConfigs, ...loadedSettings.providerConfigs };
+    const completeProviderConfigs = { ...buildDefaultAiSettings().providerConfigs, ...loadedSettings.providerConfigs };
 
     const finalSettings = {
       ...loadedSettings,
@@ -666,7 +647,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     console.log('[AI Settings] Saving to localStorage, useAiForEvaluation:', aiSettings.useAiForEvaluation);
-    saveToLocalStorage('aiSettings', aiSettings);
+    saveAiSettingsToStorage(aiSettings);
   }, [aiSettings]);
 
 
