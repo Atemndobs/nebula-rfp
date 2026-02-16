@@ -3,6 +3,7 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { requireActionManagerOrAdmin } from "../lib/auth";
 
 // RFPMart API response types (from existing FastAPI backend)
 interface RfpMartOpportunity {
@@ -339,11 +340,7 @@ export const triggerFetch = action({
     updated: number;
     errors: number;
   }> => {
-    // TODO: Re-enable auth for production
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
+    await requireActionManagerOrAdmin(ctx);
 
     return await ctx.runAction(internal.ingestion.rfpmart.fetchOpportunities, args);
   },

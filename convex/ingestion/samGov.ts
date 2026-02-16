@@ -3,6 +3,7 @@
 import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { requireActionManagerOrAdmin } from "../lib/auth";
 
 // SAM.gov API response types
 interface SamGovOpportunity {
@@ -456,8 +457,6 @@ export const fetchOpportunities = internalAction({
 
 /**
  * Public action to trigger SAM.gov fetch
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
  */
 export const triggerFetch = action({
   args: {
@@ -474,12 +473,7 @@ export const triggerFetch = action({
     updated?: number;
     errors?: number;
   }> => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
+    await requireActionManagerOrAdmin(ctx);
 
     return await ctx.runAction(internal.ingestion.samGov.fetchOpportunities, args);
   },

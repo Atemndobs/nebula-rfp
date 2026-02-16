@@ -32,13 +32,17 @@ export const syncUser = mutation({
       return existing._id;
     }
 
-    // Create new user with default role
+    // Bootstrap: first user becomes admin so the workspace can be managed.
+    const existingUsers = await ctx.db.query("users").take(1);
+    const role = existingUsers.length === 0 ? "admin" : "user";
+
+    // Create new user
     return await ctx.db.insert("users", {
       clerkId: identity.subject,
       name: identity.name ?? "",
       email: identity.email ?? "",
       imageUrl: identity.pictureUrl,
-      role: "user",
+      role,
       createdAt: now,
       lastLoginAt: now,
     });

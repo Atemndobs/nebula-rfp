@@ -1,9 +1,21 @@
-import { QueryCtx, MutationCtx } from "../_generated/server";
+import { QueryCtx, MutationCtx, ActionCtx } from "../_generated/server";
+import { api } from "../_generated/api";
 
 /**
  * Require authentication - throws if not authenticated
  */
 export async function requireAuth(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Not authenticated");
+  }
+  return identity;
+}
+
+/**
+ * Require authentication in Convex actions.
+ */
+export async function requireActionAuth(ctx: ActionCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
@@ -30,6 +42,18 @@ export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
 }
 
 /**
+ * Require admin role in Convex actions.
+ */
+export async function requireActionAdmin(ctx: ActionCtx) {
+  const identity = await requireActionAuth(ctx);
+  const user = await ctx.runQuery(api.users.getCurrentUser, {});
+  if (!user || user.role !== "admin") {
+    throw new Error("Admin access required");
+  }
+  return { identity, user };
+}
+
+/**
  * Require manager or admin role
  */
 export async function requireManagerOrAdmin(ctx: QueryCtx | MutationCtx) {
@@ -44,6 +68,18 @@ export async function requireManagerOrAdmin(ctx: QueryCtx | MutationCtx) {
     throw new Error("Manager or admin access required");
   }
 
+  return { identity, user };
+}
+
+/**
+ * Require manager or admin role in Convex actions.
+ */
+export async function requireActionManagerOrAdmin(ctx: ActionCtx) {
+  const identity = await requireActionAuth(ctx);
+  const user = await ctx.runQuery(api.users.getCurrentUser, {});
+  if (!user || (user.role !== "admin" && user.role !== "manager")) {
+    throw new Error("Manager or admin access required");
+  }
   return { identity, user };
 }
 

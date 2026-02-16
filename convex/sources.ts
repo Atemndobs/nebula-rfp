@@ -1,5 +1,6 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAdmin } from "./lib/auth";
 
 /**
  * List all data sources
@@ -81,18 +82,11 @@ export const getHealthSummary = query({
 
 /**
  * Initialize default sources (run once on setup)
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
  */
 export const initializeDefaults = mutation({
   args: {},
   handler: async (ctx) => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
+    await requireAdmin(ctx);
 
     // Check if sources already exist
     const existing = await ctx.db.query("sources").take(1);
@@ -162,8 +156,6 @@ export const initializeDefaults = mutation({
 
 /**
  * Update source configuration
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
  */
 export const update = mutation({
   args: {
@@ -175,19 +167,7 @@ export const update = mutation({
     rateLimitPerDay: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
-    // const user = await ctx.db
-    //   .query("users")
-    //   .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-    //   .first();
-    // if (!user || user.role !== "admin") {
-    //   throw new Error("Admin access required");
-    // }
+    await requireAdmin(ctx);
 
     const { id, ...updates } = args;
 
@@ -283,18 +263,11 @@ export const resetDailyCounts = internalMutation({
 /**
  * Migrate SAM.gov source to use daily quota
  * Run this once to update existing SAM.gov source record
- *
- * TODO: PRODUCTION - Re-enable auth check before deploying to production!
  */
 export const migrateSamGovToDaily = mutation({
   args: {},
   handler: async (ctx) => {
-    // DEV MODE: Auth check disabled for development
-    // TODO: Uncomment for production:
-    // const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) {
-    //   throw new Error("Not authenticated");
-    // }
+    await requireAdmin(ctx);
 
     const samGov = await ctx.db
       .query("sources")
