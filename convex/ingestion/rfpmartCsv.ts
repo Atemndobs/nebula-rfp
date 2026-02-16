@@ -248,20 +248,12 @@ export const processCSV = internalAction({
         for (const res of results) {
           if (res.action === "inserted") newCount++;
           else updatedCount++;
-
-          // Auto-evaluate (still done one by one for now, or we could batch this too if needed)
-          // We do this asynchronously/background to not block the main ingest flow too much
-          // But strict concurrency might fail if we parallelize too much.
-          // Let's do it sequentially for safety, but wrapping in try/catch
-          try {
-            await ctx.runMutation(internal.eligibilityRules.evaluateOpportunityInternal, {
-              opportunityId: res.id as any,
-            });
-            evaluatedCount++;
-          } catch (evalError) {
-            console.error(`Evaluation failed for ${res.id}:`, evalError);
-          }
         }
+
+        // Note: Evaluation is now handled asynchronously by the frontend's auto-evaluate
+        // or by calling evaluateAllPending after upload completes.
+        // This prevents timeout issues with large CSV files.
+        evaluatedCount = 0; // Will be evaluated async
       } catch (batchError) {
         console.error(`Batch failed at index ${i}:`, batchError);
         const message = batchError instanceof Error ? batchError.message : String(batchError);

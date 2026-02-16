@@ -81,6 +81,7 @@ const AdminView: React.FC<AdminViewProps> = ({
   criteriaConfig,
   onToggleMasterCriterion,
   onToggleCriterionItem,
+  onAddCriterionItem,
   aiSettings,
   onUpdateAiSettings,
   onAutoImproveCorePrompt,
@@ -95,6 +96,7 @@ const AdminView: React.FC<AdminViewProps> = ({
 
   const [editableCorePrompt, setEditableCorePrompt] = useState(aiSettings.corePromptTemplate);
   const [editableSystemInstructions, setEditableSystemInstructions] = useState<Partial<Record<EvaluationCriterionKey, string>>>({...aiSettings.systemInstructions});
+  const [newCriterionItems, setNewCriterionItems] = useState<Partial<Record<EvaluationCriterionKey, string>>>({});
   const [localRefreshInterval, setLocalRefreshInterval] = useState<string>(String(autoRefreshIntervalHours));
 
   const [localProviderConfigs, setLocalProviderConfigs] = useState<Partial<Record<AiProvider, ProviderConfig>>>(
@@ -319,32 +321,54 @@ const AdminView: React.FC<AdminViewProps> = ({
     const itemsToRender: CriterionItem[] = criterion.keywords || criterion.preferredCategories || [];
     const useTwoColumns = itemsToRender.length > 8;
 
-    if (itemsToRender.length === 0 && criterion.detailsSummary) {
-        return <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">{criterion.detailsSummary}</p>;
-    }
-    if (itemsToRender.length === 0) {
-        return <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">No configurable sub-items for this criterion.</p>;
-    }
-
     return (
-      <div className={`pl-2 max-h-60 overflow-y-auto ${useTwoColumns ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4' : 'space-y-1.5'}`}>
-        {itemsToRender.map(item => (
-          <label
-            key={item.value}
-            htmlFor={`criterion-${criterion.key}-${item.value}`}
-            className="flex items-center cursor-pointer p-1 hover:bg-accents-2 dark:hover:bg-dark-accents-8/30 rounded"
+      <div className="space-y-3">
+        {itemsToRender.length === 0 && (
+          <p className="pl-2 text-xs text-geist-secondary dark:text-dark-geist-secondary">
+            {criterion.detailsSummary || 'No sub-items configured yet. Add one below to customize this criterion.'}
+          </p>
+        )}
+        <div className={`pl-2 max-h-60 overflow-y-auto ${useTwoColumns ? 'grid grid-cols-1 sm:grid-cols-2 gap-x-4' : 'space-y-1.5'}`}>
+          {itemsToRender.map(item => (
+            <label
+              key={item.value}
+              htmlFor={`criterion-${criterion.key}-${item.value}`}
+              className="flex items-center cursor-pointer p-1 hover:bg-accents-2 dark:hover:bg-dark-accents-8/30 rounded"
+            >
+              <input
+                type="checkbox"
+                id={`criterion-${criterion.key}-${item.value}`}
+                checked={item.enabled}
+                onChange={(e) => onToggleCriterionItem(criterion.key, item.value, e.target.checked)}
+                disabled={!criterion.isMasterEnabled}
+                className="h-3.5 w-3.5 rounded border-accents-3 dark:border-accents-5 text-vercel-blue focus:ring-vercel-blue focus:ring-1 focus:ring-offset-0 bg-white dark:bg-dark-accents-1"
+              />
+              <span className={`ml-2 text-xs ${!criterion.isMasterEnabled ? 'text-accents-4 dark:text-accents-5' : 'text-geist-secondary dark:text-dark-geist-secondary'}`}>{item.value}</span>
+            </label>
+          ))}
+        </div>
+        <div className="pl-2 flex items-center gap-2">
+          <input
+            type="text"
+            value={newCriterionItems[criterion.key] || ''}
+            onChange={(e) => setNewCriterionItems(prev => ({ ...prev, [criterion.key]: e.target.value }))}
+            placeholder="Add keyword/rule term..."
+            className={`${inputBaseClasses} flex-1 text-xs`}
+          />
+          <button
+            onClick={() => {
+              const value = (newCriterionItems[criterion.key] || '').trim();
+              if (!value) return;
+              onAddCriterionItem(criterion.key, value);
+              setNewCriterionItems(prev => ({ ...prev, [criterion.key]: '' }));
+            }}
+            className={primaryButtonClasses}
+            disabled={!criterion.isMasterEnabled}
+            title={criterion.isMasterEnabled ? 'Add custom term to this criterion' : 'Enable criterion first'}
           >
-            <input
-              type="checkbox"
-              id={`criterion-${criterion.key}-${item.value}`}
-              checked={item.enabled}
-              onChange={(e) => onToggleCriterionItem(criterion.key, item.value, e.target.checked)}
-              disabled={!criterion.isMasterEnabled}
-              className="h-3.5 w-3.5 rounded border-accents-3 dark:border-accents-5 text-vercel-blue focus:ring-vercel-blue focus:ring-1 focus:ring-offset-0 bg-white dark:bg-dark-accents-1"
-            />
-            <span className={`ml-2 text-xs ${!criterion.isMasterEnabled ? 'text-accents-4 dark:text-accents-5' : 'text-geist-secondary dark:text-dark-geist-secondary'}`}>{item.value}</span>
-          </label>
-        ))}
+            Add
+          </button>
+        </div>
       </div>
     );
   };

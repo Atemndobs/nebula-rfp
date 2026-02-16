@@ -184,16 +184,21 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
         </h3>
         {evaluation && !isEvaluating && (
           evaluation.eligibility ? (
-            // Show eligibility status badge for Convex evaluations
-            <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-              evaluation.eligibility.status === 'ELIGIBLE'
-                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
-                : evaluation.eligibility.status === 'PARTNER_REQUIRED'
-                  ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700'
-                  : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
-            }`} aria-label={`Eligibility: ${evaluation.eligibility.status}`}>
-              {evaluation.eligibility.status === 'ELIGIBLE' ? 'Eligible' :
-               evaluation.eligibility.status === 'PARTNER_REQUIRED' ? 'Partner Needed' : 'Not Eligible'}
+            // Show both eligibility status and criteria score for Convex evaluations
+            <div className="flex items-center gap-2">
+              <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                evaluation.eligibility.status === 'ELIGIBLE'
+                  ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
+                  : evaluation.eligibility.status === 'PARTNER_REQUIRED'
+                    ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700'
+                    : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
+              }`} aria-label={`Eligibility: ${evaluation.eligibility.status}`}>
+                {evaluation.eligibility.status === 'ELIGIBLE' ? 'Eligible' :
+                 evaluation.eligibility.status === 'PARTNER_REQUIRED' ? 'Partner Needed' : 'Not Eligible'}
+              </div>
+              <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getScoreClasses(evaluation.score, evaluation.maxScore)}`} aria-label={`Score: ${evaluation.score} out of ${evaluation.maxScore}`}>
+                Score: {evaluation.score}/{evaluation.maxScore > 0 ? evaluation.maxScore : '-'}
+              </div>
             </div>
           ) : (
             // Show score badge for AI/manual evaluations
@@ -242,15 +247,8 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
             </p>
           </div>
 
-          {/* Display eligibility rules from Convex evaluations */}
-          {evaluation.eligibility && evaluation.eligibility.reasons.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4 pl-8" role="list" aria-label="Eligibility Rules">
-              {evaluation.eligibility.reasons.map((reason, idx) => (
-                <EligibilityRuleDisplay key={`${reason.ruleId}-${idx}`} reason={reason} />
-              ))}
-            </div>
-          ) : evaluatedCriterionKeys.length > 0 ? (
-            /* Display traditional criteria for non-Convex evaluations */
+          {/* Display six-criterion scoring view for all evaluations */}
+          {evaluatedCriterionKeys.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4 pl-8" role="list" aria-label="Evaluation Criteria">
               {evaluatedCriterionKeys.map(key => {
                 const result = evaluation.criteriaResults[key];
@@ -259,6 +257,13 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
                 }
                 return null;
               })}
+            </div>
+          ) : evaluation.eligibility && evaluation.eligibility.reasons.length > 0 ? (
+            // Fallback when only eligibility reasons are available
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4 pl-8" role="list" aria-label="Eligibility Rules">
+              {evaluation.eligibility.reasons.map((reason, idx) => (
+                <EligibilityRuleDisplay key={`${reason.ruleId}-${idx}`} reason={reason} />
+              ))}
             </div>
           ) : (
              !isEvaluating && !evaluation.eligibility && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">No criteria effectively enabled for this evaluation.</p>

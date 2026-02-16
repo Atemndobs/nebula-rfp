@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { SignedIn, SignedOut } from '@clerk/clerk-react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from './convex/_generated/api';
-import { RFPWithEvaluation, FilterState, SortConfig, EvaluationCriterionKey, RFP, ApiRfp, FetchRfpsResponse, RfpDetail, AppView, RfpSourceCategory, AdminViewProps, NebulaLogixCriterion, CriterionItem, AiSettings, AiProvider, ProviderConfig, KeywordAnalysisResult, RfpFitAnalysis } from './types';
+import { RFPWithEvaluation, FilterState, SortConfig, EvaluationCriterionKey, RFP, ApiRfp, FetchRfpsResponse, RfpDetail, AppView, RfpSourceCategory, AdminViewProps, NebulaLogixCriterion, CriterionItem, AiSettings, AiProvider, ProviderConfig, KeywordAnalysisResult, RfpFitAnalysis, EvaluationResult } from './types';
 import { fetchRfps, parseDeadlineFromTitleString } from './services/rfpDataService';
 import { evaluateRfp, performBatchEvaluation } from './services/evaluationService';
 import { isGeminiAvailable as isGeminiConfiguredViaEnvHook, generateTextWithGemini } from './services/geminiService';
@@ -50,6 +50,25 @@ const deepCloneCriteriaConfig = (config: Record<EvaluationCriterionKey, NebulaLo
     }
   }
   return newConfig as Record<EvaluationCriterionKey, NebulaLogixCriterion>;
+};
+
+const sanitizeCriterionItems = (items: unknown): CriterionItem[] => {
+  if (!Array.isArray(items)) return [];
+
+  return items
+    .map((item): CriterionItem | null => {
+      if (!item || typeof item !== 'object') return null;
+      const maybeItem = item as Partial<CriterionItem>;
+      if (typeof maybeItem.value !== 'string') return null;
+      const normalizedValue = maybeItem.value.trim();
+      if (!normalizedValue) return null;
+      return {
+        value: normalizedValue,
+        enabled: typeof maybeItem.enabled === 'boolean' ? maybeItem.enabled : false,
+        description: typeof maybeItem.description === 'string' ? maybeItem.description : undefined,
+      };
+    })
+    .filter((item): item is CriterionItem => item !== null);
 };
 
 // Helper to load from localStorage
@@ -256,6 +275,8 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
 
 const App: React.FC = () => {
   const [allRfps, setAllRfps] = useState<RFPWithEvaluation[]>([]);
+  const [convexEvaluationOverrides, setConvexEvaluationOverrides] = useState<Record<string, EvaluationResult>>({});
+  const [convexEvaluatingIds, setConvexEvaluatingIds] = useState<Set<string>>(new Set());
   const [rawApiData, setRawApiData] = useState<ApiRfp[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -301,9 +322,11 @@ const App: React.FC = () => {
   const [modalRfpDetailLoading, setModalRfpDetailLoading] = useState<boolean>(false);
   const [modalRfpDetailError, setModalRfpDetailError] = useState<string | null>(null);
   const [modalFitAnalysisLoading, setModalFitAnalysisLoading] = useState<boolean>(false);
+  const [isSyncingCsv, setIsSyncingCsv] = useState<boolean>(false);
 
   // Convex action for scraping RFP details directly (no crawler API needed)
   const scrapeRfpDetail = useAction(api.ingestion.scraper.scrapeRfpDetail);
+  const uploadCsv = useAction(api.ingestion.rfpmartCsv.uploadCSV);
 
   // Fetch enabled sources to filter what's displayed
   const enabledSources = useQuery(api.sources.listEnabled);
@@ -322,6 +345,59 @@ const App: React.FC = () => {
   // Mutation to evaluate pending opportunities
   const evaluateAllPending = useMutation(api.eligibilityRules.evaluateAllPending);
 
+  const [currentCriteriaConfig, setCurrentCriteriaConfig] = useState<Record<EvaluationCriterionKey, NebulaLogixCriterion>>(
+    () => {
+      const baseConfigWithEvaluators = deepCloneCriteriaConfig(NEBULA_LOGIX_CRITERIA_CONFIG);
+      const storedConfigString = localStorage.getItem('criteriaConfig');
+
+      if (storedConfigString) {
+        try {
+          const storedSerializableParts = JSON.parse(storedConfigString) as Record<EvaluationCriterionKey, Partial<Pick<NebulaLogixCriterion, 'isMasterEnabled' | 'keywords' | 'preferredCategories' | 'geminiSystemInstruction'>>>;
+
+          for (const key in baseConfigWithEvaluators) {
+            const criterionKey = key as EvaluationCriterionKey;
+            const storedCriterion = storedSerializableParts[criterionKey];
+
+            if (storedCriterion) {
+              if (typeof storedCriterion.isMasterEnabled === 'boolean') {
+                baseConfigWithEvaluators[criterionKey].isMasterEnabled = storedCriterion.isMasterEnabled;
+              }
+
+              if (storedCriterion.keywords && baseConfigWithEvaluators[criterionKey].keywords) {
+                const sanitizedStoredKeywords = sanitizeCriterionItems(storedCriterion.keywords);
+                const mergedBaseKeywords = baseConfigWithEvaluators[criterionKey].keywords!.map(baseKw => {
+                  const storedKw = sanitizedStoredKeywords.find(skw => skw.value === baseKw.value);
+                  return storedKw ? { ...baseKw, enabled: storedKw.enabled } : baseKw;
+                });
+                const additionalKeywords = sanitizedStoredKeywords.filter(
+                  (storedKw) => !mergedBaseKeywords.some((baseKw) => baseKw.value === storedKw.value)
+                );
+                baseConfigWithEvaluators[criterionKey].keywords = [...mergedBaseKeywords, ...additionalKeywords];
+              }
+
+              if (storedCriterion.preferredCategories && baseConfigWithEvaluators[criterionKey].preferredCategories) {
+                const sanitizedStoredCategories = sanitizeCriterionItems(storedCriterion.preferredCategories);
+                const mergedBaseCategories = baseConfigWithEvaluators[criterionKey].preferredCategories!.map(baseCat => {
+                  const storedCat = sanitizedStoredCategories.find(scat => scat.value === baseCat.value);
+                  return storedCat ? { ...baseCat, enabled: storedCat.enabled } : baseCat;
+                });
+                const additionalCategories = sanitizedStoredCategories.filter(
+                  (storedCat) => !mergedBaseCategories.some((baseCat) => baseCat.value === storedCat.value)
+                );
+                baseConfigWithEvaluators[criterionKey].preferredCategories = [...mergedBaseCategories, ...additionalCategories];
+              }
+            }
+          }
+          return baseConfigWithEvaluators;
+        } catch (error) {
+          console.error("Error parsing or merging criteriaConfig from localStorage:", error);
+          return deepCloneCriteriaConfig(NEBULA_LOGIX_CRITERIA_CONFIG);
+        }
+      }
+      return baseConfigWithEvaluators;
+    }
+  );
+
   // Transform Convex opportunities to RFPWithEvaluation format (including eligibility evaluation)
   // Filter by enabled sources - disabled sources are hidden from display
   const convexRfps = useMemo((): RFPWithEvaluation[] => {
@@ -331,19 +407,88 @@ const App: React.FC = () => {
       // Format dueDate from timestamp to YYYY-MM-DD string
       const dueDate = opp.dueDate ? new Date(opp.dueDate).toISOString().split('T')[0] : null;
 
-      // Transform eligibility evaluation to frontend format
-      const evaluation = opp.evaluation ? {
-        isFit: opp.evaluation.isGoodFit,
-        score: opp.evaluation.totalScore,
-        maxScore: opp.evaluation.maxScore,
-        // Empty criteriaResults - eligibility rules don't map to frontend criteria
-        criteriaResults: {} as Record<EvaluationCriterionKey, { met: boolean; details: string }>,
-        reasoning: `${opp.evaluation.eligibilityStatus}: ${opp.evaluation.isGoodFit ? 'Eligible' :
-          opp.evaluation.eligibilityStatus === 'PARTNER_REQUIRED' ? 'May need partner' : 'Not eligible'}`,
+      type EligibilityReasonLike = {
+        ruleId: string;
+        ruleName: string;
+        outcome: 'pass' | 'fail' | 'flag';
+        severity: 'hard' | 'soft';
+        evidence: string;
+        keywords?: string[];
+      };
+
+      // Score Convex records with the same criterion evaluators used elsewhere.
+      // This avoids "all green" cards when eligibility is lenient but fit scoring should fail.
+      const scoreFromConfiguredCriteria = () => {
+        const scoringInput: RFP = {
+          id: opp._id,
+          title: opp.title,
+          summary: opp.fullDescription || '',
+          deadline: dueDate,
+          url: opp.sourceUrl,
+          source: opp.source,
+          location: opp.location?.state || opp.location?.city || undefined,
+          category: opp.categories?.[0] || undefined,
+        };
+
+        const criteriaResults = {} as Record<EvaluationCriterionKey, { met: boolean; details: string }>;
+        let score = 0;
+        let maxScore = 0;
+
+        (Object.keys(currentCriteriaConfig) as EvaluationCriterionKey[]).forEach((criterionKey) => {
+          const criterion = currentCriteriaConfig[criterionKey];
+          if (!criterion) return;
+
+          if (!criterion.isMasterEnabled) {
+            criteriaResults[criterionKey] = { met: false, details: 'Criterion disabled by admin.' };
+            return;
+          }
+
+          maxScore++;
+          try {
+            const result = criterion.evaluator(scoringInput, criterion);
+            criteriaResults[criterionKey] = {
+              met: !!result.met,
+              details: result.details || 'Criterion evaluated.',
+            };
+            if (result.met) score++;
+          } catch (error) {
+            console.error(`Criterion evaluation failed for ${criterionKey}:`, error);
+            criteriaResults[criterionKey] = {
+              met: false,
+              details: 'Criterion evaluation failed for this record.',
+            };
+          }
+        });
+
+        const threshold = maxScore > 0 ? Math.max(1, Math.ceil((4 / 6) * maxScore)) : 0;
+        const isFitByScore = maxScore > 0 && score >= threshold;
+
+        return {
+          criteriaResults,
+          score,
+          maxScore,
+          threshold,
+          isFitByScore,
+        };
+      };
+
+      const scoring = scoreFromConfiguredCriteria();
+      const eligibilityStatus = opp.evaluation?.eligibilityStatus;
+      const normalizedScore = eligibilityStatus === 'REJECTED' ? 0 : scoring.score;
+      const isGoodFitByPolicy = eligibilityStatus !== 'REJECTED' && scoring.isFitByScore;
+      const rawReasons = ((opp.evaluation?.reasons || []) as EligibilityReasonLike[]);
+
+      const derivedEvaluation = opp.evaluation ? {
+        isFit: isGoodFitByPolicy,
+        score: normalizedScore,
+        maxScore: scoring.maxScore,
+        criteriaResults: scoring.criteriaResults,
+        reasoning: `${opp.evaluation.eligibilityStatus}: ${opp.evaluation.eligibilityStatus === 'ELIGIBLE' ? 'Eligible' :
+          opp.evaluation.eligibilityStatus === 'PARTNER_REQUIRED' ? 'May need partner' : 'Not eligible'} (${normalizedScore}/${scoring.maxScore}, fit threshold: ${scoring.threshold})`,
         // Pass eligibility data for separate display in RfpCard
         eligibility: {
           status: opp.evaluation.eligibilityStatus as 'ELIGIBLE' | 'PARTNER_REQUIRED' | 'REJECTED',
-          reasons: (opp.evaluation.reasons || []).map(r => ({
+          reasons: rawReasons.map(r => ({
             ruleId: r.ruleId as any,
             ruleName: r.ruleName,
             outcome: r.outcome as 'pass' | 'fail' | 'flag',
@@ -357,6 +502,7 @@ const App: React.FC = () => {
           rulesVersion: opp.evaluation.rulesVersion || '1.0',
         },
       } : undefined;
+      const evaluation = convexEvaluationOverrides[opp._id] || derivedEvaluation;
 
       return {
         id: opp._id,
@@ -370,6 +516,7 @@ const App: React.FC = () => {
         apiPostedDate: opp.postedDate ? new Date(opp.postedDate).toISOString().split('T')[0] : undefined,
         apiExpiryDate: dueDate || undefined,
         evaluation,
+        isEvaluating: convexEvaluatingIds.has(opp._id),
       };
     };
 
@@ -399,7 +546,11 @@ const App: React.FC = () => {
     });
 
     return filteredItems.map(toRfpWithEvaluation);
-  }, [convexOpportunities, enabledSources]);
+  }, [convexOpportunities, enabledSources, convexEvaluationOverrides, convexEvaluatingIds, currentCriteriaConfig]);
+
+  const convexOpportunityIdSet = useMemo(() => {
+    return new Set((convexOpportunities?.items || []).map((opp) => opp._id));
+  }, [convexOpportunities]);
 
   // Reset source filter if the currently selected source gets disabled
   useEffect(() => {
@@ -418,26 +569,28 @@ const App: React.FC = () => {
     }
   }, [enabledSources, sourceFilter]);
 
-  // Auto-evaluate unevaluated opportunities when they're loaded
-  const [hasTriggeredEvaluation, setHasTriggeredEvaluation] = useState(false);
+  // Auto-evaluate unevaluated opportunities whenever new ones appear
+  const [isAutoEvaluatingPending, setIsAutoEvaluatingPending] = useState(false);
   useEffect(() => {
-    // Only trigger once, and only if there are unevaluated opportunities
-    if (
-      convexOpportunities &&
-      convexOpportunities.unevaluated > 0 &&
-      !hasTriggeredEvaluation
-    ) {
-      console.log(`Auto-evaluating ${convexOpportunities.unevaluated} unevaluated opportunities...`);
-      setHasTriggeredEvaluation(true);
-      evaluateAllPending({ limit: 50 })
-        .then((result) => {
-          console.log(`Evaluated ${result.evaluated} opportunities`);
-        })
-        .catch((err) => {
-          console.error('Auto-evaluation failed:', err);
-        });
+    if (!convexOpportunities || convexOpportunities.unevaluated <= 0 || isAutoEvaluatingPending) {
+      return;
     }
-  }, [convexOpportunities, hasTriggeredEvaluation, evaluateAllPending]);
+
+    const limit = Math.min(500, convexOpportunities.unevaluated);
+    console.log(`Auto-evaluating ${limit} unevaluated opportunities...`);
+    setIsAutoEvaluatingPending(true);
+
+    evaluateAllPending({ limit })
+      .then((result) => {
+        console.log(`Evaluated ${result.evaluated} opportunities`);
+      })
+      .catch((err) => {
+        console.error('Auto-evaluation failed:', err);
+      })
+      .finally(() => {
+        setIsAutoEvaluatingPending(false);
+      });
+  }, [convexOpportunities, isAutoEvaluatingPending, evaluateAllPending]);
 
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => {
     const loadedSettings = loadFromLocalStorage<AiSettings>('aiSettings', getDefaultAiSettings());
@@ -459,52 +612,10 @@ const App: React.FC = () => {
   const [currentRfpLimit, setCurrentRfpLimit] = useState<number>(aiSettings.useAiForEvaluation ? 1 : 10);
 
 
-  const [currentCriteriaConfig, setCurrentCriteriaConfig] = useState<Record<EvaluationCriterionKey, NebulaLogixCriterion>>(
-    () => {
-      const baseConfigWithEvaluators = deepCloneCriteriaConfig(NEBULA_LOGIX_CRITERIA_CONFIG);
-      const storedConfigString = localStorage.getItem('criteriaConfig');
-
-      if (storedConfigString) {
-        try {
-          const storedSerializableParts = JSON.parse(storedConfigString) as Record<EvaluationCriterionKey, Partial<Pick<NebulaLogixCriterion, 'isMasterEnabled' | 'keywords' | 'preferredCategories' | 'geminiSystemInstruction'>>>;
-
-          for (const key in baseConfigWithEvaluators) {
-            const criterionKey = key as EvaluationCriterionKey;
-            const storedCriterion = storedSerializableParts[criterionKey];
-
-            if (storedCriterion) {
-              if (typeof storedCriterion.isMasterEnabled === 'boolean') {
-                baseConfigWithEvaluators[criterionKey].isMasterEnabled = storedCriterion.isMasterEnabled;
-              }
-
-              if (storedCriterion.keywords && baseConfigWithEvaluators[criterionKey].keywords) {
-                baseConfigWithEvaluators[criterionKey].keywords = baseConfigWithEvaluators[criterionKey].keywords!.map(baseKw => {
-                  const storedKw = storedCriterion.keywords!.find(skw => skw.value === baseKw.value);
-                  return storedKw ? { ...baseKw, enabled: storedKw.enabled } : baseKw;
-                });
-              }
-
-              if (storedCriterion.preferredCategories && baseConfigWithEvaluators[criterionKey].preferredCategories) {
-                baseConfigWithEvaluators[criterionKey].preferredCategories = baseConfigWithEvaluators[criterionKey].preferredCategories!.map(baseCat => {
-                  const storedCat = storedCriterion.preferredCategories!.find(scat => scat.value === baseCat.value);
-                  return storedCat ? { ...baseCat, enabled: storedCat.enabled } : baseCat;
-                });
-              }
-            }
-          }
-          return baseConfigWithEvaluators;
-        } catch (error) {
-          console.error("Error parsing or merging criteriaConfig from localStorage:", error);
-          return deepCloneCriteriaConfig(NEBULA_LOGIX_CRITERIA_CONFIG);
-        }
-      }
-      return baseConfigWithEvaluators;
-    }
-  );
-
   const [isImprovingPrompt, setIsImprovingPrompt] = useState<boolean>(false);
   const refreshTimeoutRef = useRef<number | null>(null);
   const refreshIntervalRef = useRef<number | null>(null);
+  const aiEvaluationTextCacheRef = useRef<Map<string, string>>(new Map());
 
 
   const allHighlightKeywords = useMemo(() => {
@@ -613,6 +724,33 @@ const App: React.FC = () => {
           }
         }
       }
+      return newConfig;
+    });
+  };
+
+  const handleAddCriterionItem = (criterionKey: EvaluationCriterionKey, itemValue: string) => {
+    const normalizedValue = itemValue.trim();
+    if (!normalizedValue) return;
+
+    setCurrentCriteriaConfig(prevConfig => {
+      const newConfig = deepCloneCriteriaConfig(prevConfig);
+      const criterionToUpdate = newConfig[criterionKey];
+
+      if (criterionToUpdate.keywords) {
+        const exists = criterionToUpdate.keywords.some(item => item.value.toLowerCase() === normalizedValue.toLowerCase());
+        if (!exists) {
+          criterionToUpdate.keywords = [...criterionToUpdate.keywords, { value: normalizedValue, enabled: true }];
+        }
+      } else if (criterionToUpdate.preferredCategories) {
+        const exists = criterionToUpdate.preferredCategories.some(item => item.value.toLowerCase() === normalizedValue.toLowerCase());
+        if (!exists) {
+          criterionToUpdate.preferredCategories = [...criterionToUpdate.preferredCategories, { value: normalizedValue, enabled: true }];
+        }
+      } else {
+        criterionToUpdate.keywords = [{ value: normalizedValue, enabled: true }];
+      }
+
+      criterionToUpdate.isMasterEnabled = true;
       return newConfig;
     });
   };
@@ -756,19 +894,60 @@ const App: React.FC = () => {
       return;
     }
 
-    setAllRfps(prevRfps => prevRfps.map(r =>
-      r.id === rfpToEvaluate.id ? { ...r, isEvaluating: true } : r
-    ));
+    const isConvexRecord = convexOpportunityIdSet.has(rfpToEvaluate.id);
+    if (isConvexRecord) {
+      setConvexEvaluatingIds((prev) => {
+        const next = new Set(prev);
+        next.add(rfpToEvaluate.id);
+        return next;
+      });
+    } else {
+      setAllRfps(prevRfps => prevRfps.map(r =>
+        r.id === rfpToEvaluate.id ? { ...r, isEvaluating: true } : r
+      ));
+    }
     if (modalRfpSummary?.id === rfpToEvaluate.id) {
       setModalRfpSummary(prev => prev ? { ...prev, isEvaluating: true } : null);
     }
 
     let textForEvaluation = `${rfpToEvaluate.title} ${rfpToEvaluate.summary}`;
-    if (useDetailData && modalRfpDetailData && modalRfpDetailData.url === rfpToEvaluate.url) {
+    let hasDetailedText = false;
+
+    if (modalRfpDetailData && modalRfpDetailData.url === rfpToEvaluate.url) {
       let detailedSummary = modalRfpDetailData.title || "";
       if (modalRfpDetailData.description) detailedSummary += ` ${modalRfpDetailData.description}`;
       if (modalRfpDetailData.scope_of_service) detailedSummary += ` ${modalRfpDetailData.scope_of_service}`;
-      textForEvaluation = detailedSummary.trim() || textForEvaluation;
+      if (detailedSummary.trim()) {
+        textForEvaluation = detailedSummary.trim();
+        hasDetailedText = true;
+      }
+    }
+
+    // Keep card and modal evaluations consistent by always preferring full scraped detail text.
+    if (!hasDetailedText && rfpToEvaluate.url && rfpToEvaluate.url !== '#') {
+      const cachedText = aiEvaluationTextCacheRef.current.get(rfpToEvaluate.url);
+      if (cachedText) {
+        textForEvaluation = cachedText;
+        hasDetailedText = true;
+      } else {
+        try {
+          const scraped = await scrapeRfpDetail({ url: rfpToEvaluate.url });
+          let detailedSummary = scraped.title || '';
+          if (scraped.description) detailedSummary += ` ${scraped.description}`;
+          if (scraped.scope_of_service) detailedSummary += ` ${scraped.scope_of_service}`;
+          const normalizedDetailedText = detailedSummary.trim();
+          if (normalizedDetailedText) {
+            aiEvaluationTextCacheRef.current.set(rfpToEvaluate.url, normalizedDetailedText);
+            textForEvaluation = normalizedDetailedText;
+            hasDetailedText = true;
+          }
+        } catch (detailError) {
+          console.warn(`Could not fetch detailed text for AI evaluation (${rfpToEvaluate.id}); falling back to list summary.`, detailError);
+        }
+      }
+    }
+
+    if (hasDetailedText) {
       console.log(`Using detailed text for AI evaluation of ${rfpToEvaluate.id}`);
     }
 
@@ -790,9 +969,22 @@ const App: React.FC = () => {
         isGeminiConfiguredViaEnv
       );
 
-      setAllRfps(prevRfps => prevRfps.map(r =>
-        r.id === rfpToEvaluate.id ? { ...r, evaluation: newEvaluation, isEvaluating: false } : r
-      ));
+      if (isConvexRecord) {
+        setConvexEvaluationOverrides((prev) => ({
+          ...prev,
+          [rfpToEvaluate.id]: newEvaluation,
+        }));
+        setConvexEvaluatingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(rfpToEvaluate.id);
+          return next;
+        });
+      } else {
+        setAllRfps(prevRfps => prevRfps.map(r =>
+          r.id === rfpToEvaluate.id ? { ...r, evaluation: newEvaluation, isEvaluating: false } : r
+        ));
+      }
+
       if (modalRfpSummary?.id === rfpToEvaluate.id) {
         setModalRfpSummary(prev => prev ? { ...prev, evaluation: newEvaluation, isEvaluating: false } : null);
         // If the modal is open for this RFP, also re-fetch fit analysis
@@ -812,14 +1004,22 @@ const App: React.FC = () => {
     } catch (error) {
       console.error(`Error evaluating single RFP ${rfpToEvaluate.id} with AI:`, error);
       alert(`Failed to evaluate RFP ${rfpToEvaluate.id} with AI. Check console for details.`);
-      setAllRfps(prevRfps => prevRfps.map(r =>
-        r.id === rfpToEvaluate.id ? { ...r, isEvaluating: false } : r
-      ));
+      if (isConvexRecord) {
+        setConvexEvaluatingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(rfpToEvaluate.id);
+          return next;
+        });
+      } else {
+        setAllRfps(prevRfps => prevRfps.map(r =>
+          r.id === rfpToEvaluate.id ? { ...r, isEvaluating: false } : r
+        ));
+      }
       if (modalRfpSummary?.id === rfpToEvaluate.id) {
         setModalRfpSummary(prev => prev ? { ...prev, isEvaluating: false } : null);
       }
     }
-  }, [isCurrentAiProviderConfigured, currentCriteriaConfig, aiSettings, modalRfpDetailData, modalRfpSummary?.id, isGeminiConfiguredViaEnv]);
+  }, [isCurrentAiProviderConfigured, currentCriteriaConfig, aiSettings, modalRfpDetailData, modalRfpSummary?.id, isGeminiConfiguredViaEnv, convexOpportunityIdSet, scrapeRfpDetail]);
 
 
   useEffect(() => {
@@ -1118,11 +1318,59 @@ const App: React.FC = () => {
   }, []);
 
   const handleExportSelectedToCsv = useCallback(() => {
-    const rfpsToExport = allRfps.filter(rfp => selectedRfpIds.has(rfp.id));
+    const rfpsToExport = [...allRfps, ...convexRfps].filter(rfp => selectedRfpIds.has(rfp.id));
     if (rfpsToExport.length > 0) {
       exportRfpsToCsv(rfpsToExport);
     }
-  }, [allRfps, selectedRfpIds]);
+  }, [allRfps, convexRfps, selectedRfpIds]);
+
+  const handleSyncCsvFiles = useCallback(async (files: File[]) => {
+    const csvFiles = files.filter((file) => file.name.toLowerCase().endsWith('.csv'));
+    if (csvFiles.length === 0) {
+      alert('No CSV files selected.');
+      return;
+    }
+
+    setIsSyncingCsv(true);
+    let processedFiles = 0;
+    let totalRows = 0;
+    let totalNew = 0;
+    let totalUpdated = 0;
+    let totalSkipped = 0;
+    const failedFiles: string[] = [];
+
+    try {
+      for (const file of csvFiles) {
+        try {
+          const csvContent = await file.text();
+          const result = await uploadCsv({ csvContent, filterItOnly: true });
+          processedFiles++;
+          totalRows += result.total;
+          totalNew += result.new;
+          totalUpdated += result.updated;
+          totalSkipped += result.skipped;
+        } catch (error) {
+          console.error(`CSV sync failed for ${file.name}:`, error);
+          failedFiles.push(file.name);
+        }
+      }
+
+      await evaluateAllPending({ limit: 500 });
+
+      const summary = [
+        `CSV sync complete.`,
+        `Processed files: ${processedFiles}/${csvFiles.length}`,
+        `Rows: ${totalRows}, new: ${totalNew}, updated: ${totalUpdated}, skipped: ${totalSkipped}`,
+        failedFiles.length > 0 ? `Failed files: ${failedFiles.join(', ')}` : '',
+      ].filter(Boolean).join('\n');
+      alert(summary);
+    } catch (error) {
+      console.error('CSV sync failed:', error);
+      alert(`CSV sync failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsSyncingCsv(false);
+    }
+  }, [uploadCsv, evaluateAllPending]);
 
   const isAllDisplayedSelected = useMemo(() => {
     if (displayedRfps.length === 0) return false;
@@ -1226,9 +1474,11 @@ const App: React.FC = () => {
                 onSelectBestFits={handleSelectBestFits}
                 onDeselectAll={handleDeselectAll}
                 onExportSelectedToCsv={handleExportSelectedToCsv}
+                onSyncCsvFiles={handleSyncCsvFiles}
                 hasGoodFitsDisplayed={hasGoodFitsDisplayed}
                 onManualRefresh={() => loadAndEvaluateRfps(false)}
                 isRefreshing={isLoading}
+                isSyncingCsv={isSyncingCsv}
                 lastSuccessfulFetchTime={lastSuccessfulFetchTime}
                 nextScheduledRefreshTime={nextScheduledRefreshTime}
                 autoRefreshIntervalHours={autoRefreshIntervalHours}
@@ -1342,6 +1592,7 @@ const App: React.FC = () => {
               criteriaConfig={currentCriteriaConfig}
               onToggleMasterCriterion={handleToggleMasterCriterion}
               onToggleCriterionItem={handleToggleCriterionItem}
+              onAddCriterionItem={handleAddCriterionItem}
               aiSettings={aiSettings}
               onUpdateAiSettings={handleUpdateAiSettings}
               onAutoImproveCorePrompt={handleAutoImproveCorePrompt}
