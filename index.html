@@ -14,6 +14,7 @@
 
     <!-- Apple PWA Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="RFP Tool V2">
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='90' cy='90' r='85' fill='white'/%3E%3Ccircle cx='90' cy='90' r='78' fill='purple'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-size='80' fill='white'%3E%26lt;/%26gt;%3C/text%3E%3C/svg%3E">
@@ -95,7 +96,6 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body class="font-sans bg-geist-background dark:bg-dark-geist-background text-geist-foreground dark:text-dark-geist-foreground transition-colors duration-300">
     <div id="root"></div>
@@ -117,20 +117,24 @@
             return;
           }
 
-          try {
-            // Use an absolute path for the service worker to ensure correct registration
-            const serviceWorkerUrl = '/service-worker.js';
+          const serviceWorkerUrl = '/service-worker.js';
 
-            navigator.serviceWorker.register(serviceWorkerUrl)
-              .then((registration) => {
+          fetch(serviceWorkerUrl, { method: 'HEAD' })
+            .then((response) => {
+              if (!response.ok) {
+                console.warn('Service worker script not found; skipping registration.', serviceWorkerUrl);
+                return null;
+              }
+              return navigator.serviceWorker.register(serviceWorkerUrl);
+            })
+            .then((registration) => {
+              if (registration) {
                 console.log('Service Worker registered with scope:', registration.scope, 'From URL:', serviceWorkerUrl);
-              })
-              .catch((error) => {
-                console.error('Service Worker registration failed (promise rejection):', error, 'Attempted URL:', serviceWorkerUrl);
-              });
-          } catch (e) {
-            console.error('Service Worker registration setup failed (synchronous error):', e);
-          }
+              }
+            })
+            .catch((error) => {
+              console.error('Service Worker registration failed:', error, 'Attempted URL:', serviceWorkerUrl);
+            });
         });
       }
     </script>
