@@ -6,7 +6,7 @@ import { analyzeTextWithOllama, isOllamaAvailable } from './ollamaService';
 import { analyzeTextWithOpenAI, isOpenAiAvailable } from './openaiService';
 import { analyzeTextWithLmStudio, isLmStudioAvailable } from './lmStudioService';
 import { analyzeTextWithDeepSeek, isDeepSeekAvailable } from './deepseekService'; // Import DeepSeek services
-import { DEFAULT_AI_CORE_PROMPT_TEMPLATE, AVAILABLE_AI_PROVIDERS_CONFIG } from '../constants';
+import { DEFAULT_AI_CORE_PROMPT_TEMPLATE } from '../constants';
 
 // Helper to get string values of enabled keywords from CriterionItem[]
 const getEnabledKeywordValues = (items?: CriterionItem[]): string[] => {

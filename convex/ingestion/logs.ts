@@ -39,36 +39,6 @@ export const create = internalMutation({
 });
 
 /**
- * Update an existing ingestion log (mark as complete)
- */
-export const complete = internalMutation({
-  args: {
-    id: v.id("ingestionLogs"),
-    status: v.union(
-      v.literal("success"),
-      v.literal("partial"),
-      v.literal("failed")
-    ),
-    fetchedCount: v.number(),
-    newCount: v.number(),
-    updatedCount: v.number(),
-    duplicateCount: v.number(),
-    errorCount: v.number(),
-    errors: v.optional(v.array(v.string())),
-  },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-
-    await ctx.db.patch(id, {
-      ...updates,
-      completedAt: Date.now(),
-    });
-
-    return { success: true };
-  },
-});
-
-/**
  * List recent ingestion logs
  */
 export const list = query({
@@ -92,29 +62,6 @@ export const list = query({
     }
 
     return await q.take(args.limit ?? 50);
-  },
-});
-
-/**
- * Get latest ingestion log for each source
- */
-export const getLatestBySource = query({
-  args: {},
-  handler: async (ctx) => {
-    const sources = ["sam.gov", "emma", "rfpmart"];
-    const results: Record<string, typeof logs[0] | null> = {};
-
-    const logs = await ctx.db
-      .query("ingestionLogs")
-      .withIndex("by_started_at")
-      .order("desc")
-      .take(100);
-
-    for (const source of sources) {
-      results[source] = logs.find((log) => log.source === source) ?? null;
-    }
-
-    return results;
   },
 });
 

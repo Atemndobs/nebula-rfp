@@ -1,7 +1,8 @@
 
 import React, { useRef } from 'react';
-import { SelectionControlsProps, AiProvider } from '../types';
-import { ProviderLogo } from './AiProviderLogos'; // Import the new ProviderLogo
+import { SelectionControlsProps } from '../types';
+import { ProviderLogo } from './AiProviderLogos';
+import { useAnalytics } from '../src/hooks/useAnalytics';
 
 const RefreshIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5">
@@ -10,9 +11,9 @@ const RefreshIcon = () => (
 );
 
 const ClockIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5 mr-1 text-accents-5 dark:text-accents-4">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5 mr-1 text-accents-5 dark:text-accents-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
 );
 
 
@@ -20,14 +21,14 @@ const formatTimestampForDisplay = (timestamp: number | null, autoRefreshInterval
   if (timestamp === null) return 'N/A';
   const date = new Date(timestamp);
   const now = new Date();
-  
+
   const diffMs = date.getTime() - now.getTime();
   const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffSeconds / 60);
   const diffHours = Math.floor(diffMinutes / 60);
 
   // For "Next Refresh"
-  if (diffMs > 0) { 
+  if (diffMs > 0) {
     if (diffMinutes < 1) return 'in a moment';
     if (diffHours < 1) return `in ${diffMinutes} min${diffMinutes > 1 ? 's' : ''}`;
     if (diffHours < autoRefreshIntervalHours + 1 && diffHours < 48) return `in approx. ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
@@ -63,11 +64,12 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
   lastSuccessfulFetchTime,
   nextScheduledRefreshTime,
   autoRefreshIntervalHours,
-  useAiForEvaluation, 
-  onToggleUseAi,       
-  isCurrentAiProviderConfigured, 
-  selectedAiProvider, 
+  useAiForEvaluation,
+  onToggleUseAi,
+  isCurrentAiProviderConfigured,
+  selectedAiProvider,
 }) => {
+  const { track, events } = useAnalytics();
   const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
   const syncCsvInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,7 +82,7 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
   const baseButtonClasses = "px-3.5 py-2 text-xs font-medium border rounded-md shadow-vercel-sm transition-colors focus:outline-none focus:ring-2 focus:ring-vercel-blue focus:ring-offset-2 dark:focus:ring-offset-dark-accents-1 flex items-center justify-center gap-1.5";
   const primaryButtonClasses = `${baseButtonClasses} bg-geist-foreground dark:bg-dark-geist-foreground text-geist-background dark:text-dark-geist-background hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed`;
   const secondaryButtonClasses = `${baseButtonClasses} bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground disabled:opacity-50 disabled:cursor-not-allowed`;
-  
+
   const aiToggleButtonClasses = `
     ${baseButtonClasses}
     ${!isCurrentAiProviderConfigured
@@ -142,7 +144,7 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
             {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
           </button>
           <button
-            onClick={onToggleUseAi}
+            onClick={() => { track(events.DATA_SOURCE_TOGGLED, { provider: selectedAiProvider, newState: !useAiForEvaluation ? 'on' : 'off' }); onToggleUseAi(); }}
             disabled={!isCurrentAiProviderConfigured || isRefreshing}
             className={aiToggleButtonClasses}
             title={!isCurrentAiProviderConfigured ? `${selectedAiProvider} AI not configured` : (useAiForEvaluation ? `Disable ${selectedAiProvider} AI Analysis` : `Enable ${selectedAiProvider} AI Analysis`)}
@@ -150,7 +152,7 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
           >
             <ProviderLogo provider={selectedAiProvider} active={useAiForEvaluation && isCurrentAiProviderConfigured} disabled={!isCurrentAiProviderConfigured} />
             <span>
-              {selectedAiProvider} Analysis: 
+              {selectedAiProvider} Analysis:
               <strong className="ml-1">
                 {isCurrentAiProviderConfigured ? (useAiForEvaluation ? 'ON' : 'OFF') : 'N/A'}
               </strong>
@@ -172,7 +174,7 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
             Deselect All
           </button>
           <button
-            onClick={onExportSelectedToCsv}
+            onClick={() => { track(events.CSV_EXPORTED, { selectedCount }); onExportSelectedToCsv(); }}
             disabled={selectedCount === 0 || isRefreshing}
             className={primaryButtonClasses}
             title="Export selected RFPs to CSV file"
@@ -180,7 +182,7 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
             Export Selected CSV
           </button>
           <button
-            onClick={handlePickCsvFiles}
+            onClick={() => { track(events.DATA_SOURCE_TOGGLED, { action: 'sync_csv' }); handlePickCsvFiles(); }}
             disabled={isRefreshing || isSyncingCsv}
             className={secondaryButtonClasses}
             title="Pick one or more CSV files and sync them into the database"
@@ -191,14 +193,14 @@ const SelectionControls: React.FC<SelectionControlsProps> = ({
       </div>
       <div className="mt-3 pt-3 border-t border-accents-2 dark:border-dark-accents-2 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-geist-secondary dark:text-dark-geist-secondary">
         <div className="flex items-center">
-            <ClockIcon />
-            <span>Last refresh: {formatTimestampForDisplay(lastSuccessfulFetchTime, autoRefreshIntervalHours)}</span>
+          <ClockIcon />
+          <span>Last refresh: {formatTimestampForDisplay(lastSuccessfulFetchTime, autoRefreshIntervalHours)}</span>
         </div>
         <div className="flex items-center">
-            <ClockIcon />
-            <span>
-                Next scheduled: {nextScheduledRefreshTime ? formatTimestampForDisplay(nextScheduledRefreshTime, autoRefreshIntervalHours) : (autoRefreshIntervalHours > 0 ? 'Calculating...' : 'Auto-refresh off')}
-            </span>
+          <ClockIcon />
+          <span>
+            Next scheduled: {nextScheduledRefreshTime ? formatTimestampForDisplay(nextScheduledRefreshTime, autoRefreshIntervalHours) : (autoRefreshIntervalHours > 0 ? 'Calculating...' : 'Auto-refresh off')}
+          </span>
         </div>
       </div>
     </div>

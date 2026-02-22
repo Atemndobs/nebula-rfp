@@ -4,7 +4,12 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexReactClient } from 'convex/react';
 import App from './App';
+import { initPostHog } from './src/lib/posthog';
+import { PostHogIdentifier } from './src/components/providers/PostHogIdentifier';
 import './styles.css';
+
+// Initialize PostHog before React renders
+initPostHog();
 
 // Initialize Convex client
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -22,9 +27,11 @@ root.render(
   <React.StrictMode>
     <ClerkProvider publishableKey={clerkPubKey}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <App />
+        <PostHogIdentifier>
+          <App />
+        </PostHogIdentifier>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   </React.StrictMode>
 );
-    
+

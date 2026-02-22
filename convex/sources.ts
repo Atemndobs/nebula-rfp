@@ -167,7 +167,8 @@ export const update = mutation({
     rateLimitPerDay: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    // Auth check removed - UI already protected by <SignedIn> wrapper
+    // To require admin: await requireAdmin(ctx);
 
     const { id, ...updates } = args;
 

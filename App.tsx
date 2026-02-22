@@ -3,12 +3,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { SignedIn, SignedOut } from '@clerk/clerk-react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from './convex/_generated/api';
-import { RFPWithEvaluation, FilterState, SortConfig, EvaluationCriterionKey, RFP, ApiRfp, FetchRfpsResponse, RfpDetail, AppView, RfpSourceCategory, AdminViewProps, NebulaLogixCriterion, CriterionItem, AiSettings, AiProvider, ProviderConfig, KeywordAnalysisResult, RfpFitAnalysis, EvaluationResult } from './types';
-import { fetchRfps, parseDeadlineFromTitleString } from './services/rfpDataService';
+import { RFPWithEvaluation, FilterState, SortConfig, EvaluationCriterionKey, RFP, ApiRfp, FetchRfpsResponse, RfpDetail, AppView, RfpSourceCategory, NebulaLogixCriterion, CriterionItem, AiSettings, AiProvider, EvaluationResult } from './types';
+import { fetchRfps, normalizeApiCategory, parseDeadlineFromTitleString } from './services/rfpDataService';
 import { evaluateRfp, performBatchEvaluation } from './services/evaluationService';
 import { isGeminiAvailable as isGeminiConfiguredViaEnvHook, generateTextWithGemini } from './services/geminiService';
 import { generateFitAnalysis } from './services/fitAnalysisService';
-import { NEBULA_LOGIX_CRITERIA_CONFIG, DEFAULT_AI_CORE_PROMPT_TEMPLATE, DEFAULT_SYSTEM_INSTRUCTIONS, META_PROMPT_FOR_AI_CORE_PROMPT_IMPROVEMENT, DEFAULT_AUTO_REFRESH_INTERVAL_HOURS, MIN_AUTO_REFRESH_INTERVAL_HOURS, AUTO_REFRESH_INTERVAL_KEY, AVAILABLE_AI_PROVIDERS_CONFIG } from './constants';
+import { NEBULA_LOGIX_CRITERIA_CONFIG, META_PROMPT_FOR_AI_CORE_PROMPT_IMPROVEMENT, DEFAULT_AUTO_REFRESH_INTERVAL_HOURS, MIN_AUTO_REFRESH_INTERVAL_HOURS, AUTO_REFRESH_INTERVAL_KEY } from './constants';
 import RfpCard from './components/RfpCard';
 import FilterControls from './components/FilterControls';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -105,28 +105,63 @@ const SPECIALIST_VENDOR_RED_FLAGS = [
   'niche expertise required',
   'oem certified partner',
   'exclusive implementation partner',
+  'enterprise based software',
+  'enterprise software',
+  'enterprise resource planning',
+  'erp implementation',
+  'erp system',
+  'enterprise-wide system',
+  'enterprise wide system',
+  'toilet paper',
+  'paper towel',
+  'janitorial',
+  'custodial',
+  'construction',
+  'hvac',
+  'plumbing',
+  'roofing',
+  'bond underwriter',
+  'bookstore operations',
+  'vending',
 ];
 
-const formatTimestampToReadable = (timestamp: number | null, type: 'full' | 'relative' = 'full'): string => {
-  if (timestamp === null) return 'N/A';
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffSeconds = Math.floor((date.getTime() - now.getTime()) / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-
-  if (type === 'relative') {
-    if (Math.abs(diffSeconds) < 60) return `${diffSeconds >= 0 ? 'in a moment' : 'moments ago'}`;
-    if (Math.abs(diffMinutes) < 60) return `${diffMinutes >= 0 ? 'in ' : ''}${Math.abs(diffMinutes)} min${Math.abs(diffMinutes) > 1 ? 's' : ''}${diffMinutes < 0 ? ' ago' : ''}`;
-    if (Math.abs(diffHours) < 24) return `${diffHours >= 0 ? 'in ' : ''}${Math.abs(diffHours)} hour${Math.abs(diffHours) > 1 ? 's' : ''}${diffHours < 0 ? ' ago' : ''}`;
+const isRfpmartUrl = (url?: string): boolean => {
+  if (!url) return false;
+  try {
+    return new URL(url).hostname.toLowerCase().includes('rfpmart.com');
+  } catch {
+    return url.toLowerCase().includes('rfpmart.com');
   }
-
-  // Fallback to full date format if not relative or outside common relative ranges
-  return date.toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  });
 };
+
+const isCsvDerivedRfp = (rfp: RFPWithEvaluation): boolean => {
+  const src = (rfp.source || '').toLowerCase();
+  return src.includes('rfpmart-csv') || src.includes('csv upload');
+};
+
+const shouldUseLiveScraper = (rfp: RFPWithEvaluation, isLiveEnabled: boolean): boolean => {
+  if (!isLiveEnabled) return false;
+  if (isCsvDerivedRfp(rfp)) return false;
+  return isRfpmartUrl(rfp.url);
+};
+
+const buildFallbackDetailData = (rfp: RFPWithEvaluation): RfpDetail => ({
+  id: rfp.id,
+  title: rfp.title || "Title not available",
+  description: rfp.summary || "No detailed description available.",
+  scope_of_service: "Not specified",
+  posted_date: rfp.apiPostedDate || "Not specified",
+  expiry_date: rfp.apiExpiryDate || rfp.deadline || "Not specified",
+  question_deadline: "Not specified",
+  location: rfp.location || "Not specified",
+  budget: "Not specified",
+  eligibility: "Not specified",
+  work_performance: "Not specified",
+  category: rfp.category || "Not specified",
+  country: "Not specified",
+  state: "Not specified",
+  url: rfp.url || "#",
+});
 
 // Recommendation Icons
 const CheckCircleIcon = () => (
@@ -153,9 +188,9 @@ const FormattedTextDisplay: React.FC<{ text: string | undefined | null }> = ({ t
   if (!text) return <p className="text-sm text-geist-secondary dark:text-dark-geist-secondary">N/A</p>;
 
   const lines = text.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements: React.ReactElement[] = [];
   let currentListType: 'ul' | 'ol' | null = null;
-  let listItems: JSX.Element[] = [];
+  let listItems: React.ReactElement[] = [];
 
   const processInlineFormatting = (lineContent: string): string => {
     let processed = lineContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -544,7 +579,7 @@ const App: React.FC = () => {
   }, [convexOpportunities, enabledSources, convexEvaluationOverrides, convexEvaluatingIds, currentCriteriaConfig]);
 
   const convexOpportunityIdSet = useMemo(() => {
-    return new Set((convexOpportunities?.items || []).map((opp) => opp._id));
+    return new Set((convexOpportunities?.items || []).map((opp) => String(opp._id)));
   }, [convexOpportunities]);
 
   // Reset source filter if the currently selected source gets disabled
@@ -591,7 +626,7 @@ const App: React.FC = () => {
     const loadedSettings = loadAiSettingsFromStorage();
     console.log('[AI Settings] Loaded from localStorage:', loadedSettings);
     console.log('[AI Settings] useAiForEvaluation from storage:', loadedSettings.useAiForEvaluation);
-    // Ensure loaded settings have all provider keys from AVAILABLE_AI_PROVIDERS_CONFIG
+    // Ensure loaded settings include all known provider keys.
     const completeProviderConfigs = { ...buildDefaultAiSettings().providerConfigs, ...loadedSettings.providerConfigs };
 
     const finalSettings = {
@@ -817,7 +852,7 @@ const App: React.FC = () => {
       source: `${new URL(apiRfp.url).hostname} (API - ${currentRfpSourceCategory})`,
       rawData: apiRfp.description,
       location: apiRfp.location,
-      category: apiRfp.category,
+      category: normalizeApiCategory(apiRfp),
       apiPostedDate: apiRfp.posted_date,
       apiExpiryDate: apiRfp.expiry_date,
     }));
@@ -883,7 +918,7 @@ const App: React.FC = () => {
     return !!config?.apiKey && !!config?.model;
   }, [aiSettings.selectedProvider, aiSettings.providerConfigs, isGeminiConfiguredViaEnv]);
 
-  const handleEvaluateSingleRfpWithAi = useCallback(async (rfpToEvaluate: RFPWithEvaluation, useDetailData: boolean = false) => {
+  const handleEvaluateSingleRfpWithAi = useCallback(async (rfpToEvaluate: RFPWithEvaluation) => {
     if (!isCurrentAiProviderConfigured) {
       alert(`${aiSettings.selectedProvider} AI is not configured. Cannot perform AI evaluation.`);
       return;
@@ -919,7 +954,7 @@ const App: React.FC = () => {
     }
 
     // Keep card and modal evaluations consistent by always preferring full scraped detail text.
-    if (!hasDetailedText && rfpToEvaluate.url && rfpToEvaluate.url !== '#') {
+    if (!hasDetailedText && shouldUseLiveScraper(rfpToEvaluate, isLiveApiEnabled) && rfpToEvaluate.url && rfpToEvaluate.url !== '#') {
       const cachedText = aiEvaluationTextCacheRef.current.get(rfpToEvaluate.url);
       if (cachedText) {
         textForEvaluation = cachedText;
@@ -1014,7 +1049,7 @@ const App: React.FC = () => {
         setModalRfpSummary(prev => prev ? { ...prev, isEvaluating: false } : null);
       }
     }
-  }, [isCurrentAiProviderConfigured, currentCriteriaConfig, aiSettings, modalRfpDetailData, modalRfpSummary?.id, isGeminiConfiguredViaEnv, convexOpportunityIdSet, scrapeRfpDetail]);
+  }, [isCurrentAiProviderConfigured, currentCriteriaConfig, aiSettings, modalRfpDetailData, modalRfpSummary?.id, isGeminiConfiguredViaEnv, convexOpportunityIdSet, scrapeRfpDetail, isLiveApiEnabled]);
 
 
   useEffect(() => {
@@ -1116,6 +1151,33 @@ const App: React.FC = () => {
       return;
     }
 
+    const runFitAnalysis = async (detailData: RfpDetail) => {
+      setModalFitAnalysisLoading(true);
+      try {
+        const fitAnalysisResult = await generateFitAnalysis(
+          detailData,
+          currentCriteriaConfig,
+          aiSettings,
+          isGeminiConfiguredViaEnv,
+          rfp.evaluation
+        );
+        setModalRfpDetailData(prevDetails => prevDetails ? { ...prevDetails, fitAnalysis: fitAnalysisResult } : null);
+      } catch (fitError) {
+        console.error("Error generating fit analysis:", fitError);
+        setModalRfpDetailData(prevDetails => prevDetails ? { ...prevDetails, fitAnalysis: { analysisError: `Failed to generate fit analysis: ${fitError instanceof Error ? fitError.message : String(fitError)}` } } : null);
+      } finally {
+        setModalFitAnalysisLoading(false);
+      }
+    };
+
+    if (!shouldUseLiveScraper(rfp, isLiveApiEnabled)) {
+      const fallback = buildFallbackDetailData(rfp);
+      setModalRfpDetailData(fallback);
+      setModalRfpDetailLoading(false);
+      await runFitAnalysis(fallback);
+      return;
+    }
+
     try {
       // Use Convex scraper action for direct page scraping (no external API needed)
       const scrapedData = await scrapeRfpDetail({ url: rfp.url });
@@ -1143,30 +1205,16 @@ const App: React.FC = () => {
       setModalRfpDetailLoading(false); // Base details loaded
 
       // Now fetch fit analysis
-      setModalFitAnalysisLoading(true);
-      try {
-        const fitAnalysisResult = await generateFitAnalysis(
-          detailData,
-          currentCriteriaConfig,
-          aiSettings,
-          isGeminiConfiguredViaEnv,
-          rfp.evaluation // Pass existing evaluation from list view
-        );
-        setModalRfpDetailData(prevDetails => prevDetails ? { ...prevDetails, fitAnalysis: fitAnalysisResult } : null);
-      } catch (fitError) {
-        console.error("Error generating fit analysis:", fitError);
-        setModalRfpDetailData(prevDetails => prevDetails ? { ...prevDetails, fitAnalysis: { analysisError: `Failed to generate fit analysis: ${fitError instanceof Error ? fitError.message : String(fitError)}` } } : null);
-      } finally {
-        setModalFitAnalysisLoading(false);
-      }
+      await runFitAnalysis(detailData);
 
     } catch (e) {
       console.error("Error scraping RFP details:", e);
-      setModalRfpDetailError(e instanceof Error ? e.message : "Failed to load RFP details. The page may not be accessible.");
+      const fallback = buildFallbackDetailData(rfp);
+      setModalRfpDetailData(fallback);
       setModalRfpDetailLoading(false);
-      setModalFitAnalysisLoading(false);
+      await runFitAnalysis(fallback);
     }
-  }, [currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv, scrapeRfpDetail]);
+  }, [currentCriteriaConfig, aiSettings, isGeminiConfiguredViaEnv, scrapeRfpDetail, isLiveApiEnabled]);
 
   const handleViewDetailsByIdInRawView = useCallback((rfpId: string) => {
     const rawRfp = rawApiData.find(r => r.id === rfpId);
@@ -1559,6 +1607,14 @@ const App: React.FC = () => {
 
               {isLoading && <div className="py-20"><LoadingSpinner message="Loading and evaluating RFPs..." /></div>}
               {error && !apiFetchFailedWarning && <div className="text-center text-red-600 dark:text-red-400 p-6 bg-red-50 dark:bg-red-900 dark:bg-opacity-30 rounded-md shadow-vercel-sm" role="alert">Critical Error: {error}</div>}
+              {!isLoading && apiFetchFailedWarning && (
+                <div className="mb-4 text-sm text-amber-800 dark:text-amber-200 p-4 bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-700 rounded-md shadow-vercel-sm" role="alert">
+                  <strong>Live RFPMart feed warning:</strong> {apiFetchFailedWarning}
+                  <div className="mt-1 text-xs opacity-90">
+                    Displayed cards may currently be from Convex database sources (for example, `rfpmart-csv`) rather than the live RFPMart web feed.
+                  </div>
+                </div>
+              )}
 
               {!isLoading && displayedRfps.length === 0 && (
                 <div className="text-center text-geist-secondary dark:text-dark-geist-secondary p-12 bg-white dark:bg-dark-accents-1 rounded-lg shadow-vercel-md">
@@ -1722,7 +1778,7 @@ const App: React.FC = () => {
 
                   <div className="mt-4">
                     <button
-                      onClick={() => modalRfpSummary && handleEvaluateSingleRfpWithAi(modalRfpSummary, true)}
+                      onClick={() => modalRfpSummary && handleEvaluateSingleRfpWithAi(modalRfpSummary)}
                       disabled={!isCurrentAiProviderConfigured || modalRfpDetailLoading || !modalRfpDetailData || modalRfpIsEvaluating || modalFitAnalysisLoading}
                       className="w-full px-4 py-2 text-xs font-medium border rounded-md shadow-vercel-sm transition-colors focus:outline-none focus:ring-2 focus:ring-vercel-blue focus:ring-offset-1 dark:focus:ring-offset-dark-accents-1 flex items-center justify-center gap-1.5 bg-white dark:bg-dark-accents-2 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground disabled:opacity-60 disabled:cursor-not-allowed"
                       title={

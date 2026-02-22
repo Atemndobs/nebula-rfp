@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Id } from "../../convex/_generated/dataModel";
 
 interface Source {
@@ -234,10 +234,47 @@ function SourceCard({ source }: { source: Source }) {
   const updateSource = useMutation(api.sources.update);
   const triggerSamGov = useAction(api.ingestion.samGov.triggerFetch);
   const triggerRfpmart = useAction(api.ingestion.rfpmart.triggerFetch);
+  const deleteRfpmartCsv = useMutation(api.opportunities.deleteAllRfpMartCsvRecords);
+  const uploadCSV = useAction(api.ingestion.rfpmartCsv.uploadCSV);
   const [isFetching, setIsFetching] = useState(false);
+  const [isDeletingCsv, setIsDeletingCsv] = useState(false);
   const [fetchResult, setFetchResult] = useState<string | null>(null);
   const isManualCsvSource = source.name === "rfpmart-csv";
   const canFetchNow = source.enabled && !isManualCsvSource;
+
+  // CSV Upload state
+  const [showUpload, setShowUpload] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [filterItOnly, setFilterItOnly] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCsvUpload = async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      setFetchResult("Error: Please select a CSV file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFetchResult("Error: File size exceeds 10MB limit");
+      return;
+    }
+
+    setIsUploading(true);
+    setFetchResult(null);
+    try {
+      const csvContent = await file.text();
+      const result = await uploadCSV({ csvContent, filterItOnly });
+      if (result.success) {
+        setFetchResult(`Uploaded: ${result.new} new, ${result.updated} updated, ${result.skipped} skipped`);
+      } else {
+        setFetchResult(`Upload failed: ${result.errorMessages.join(", ")}`);
+      }
+    } catch (err) {
+      setFetchResult(`Error: ${err instanceof Error ? err.message : "Upload failed"}`);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const statusColors = {
     healthy: { bg: "#DCFCE7", border: "#22C55E", text: "#15803D" },
@@ -249,10 +286,15 @@ function SourceCard({ source }: { source: Source }) {
   const colors = statusColors[source.status];
 
   const handleToggle = async () => {
-    await updateSource({
-      id: source._id,
-      enabled: !source.enabled,
-    });
+    try {
+      await updateSource({
+        id: source._id,
+        enabled: !source.enabled,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setFetchResult(`Error toggling source: ${message}`);
+    }
   };
 
   const handleFetchNow = async () => {
@@ -284,6 +326,35 @@ function SourceCard({ source }: { source: Source }) {
       setFetchResult(`Failed: ${error}`);
     } finally {
       setIsFetching(false);
+    }
+  };
+
+  const handleDeleteCsvRecords = async () => {
+    if (!isManualCsvSource || isDeletingCsv) return;
+
+    const confirmed = window.confirm(
+      "Delete all RFPMart CSV records and their evaluations? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setIsDeletingCsv(true);
+    setFetchResult(null);
+    try {
+      let totalDeleted = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const result = await deleteRfpmartCsv({ confirm: true, batchSize: 100 });
+        totalDeleted += result.deleted;
+        hasMore = result.hasMore;
+      }
+
+      setFetchResult(`Deleted ${totalDeleted} RFPMart CSV record(s).`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setFetchResult(`Failed: ${message}`);
+    } finally {
+      setIsDeletingCsv(false);
     }
   };
 
@@ -439,10 +510,10 @@ function SourceCard({ source }: { source: Source }) {
       )}
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: "0.5rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
         <button
           onClick={handleFetchNow}
-          disabled={isFetching || !canFetchNow}
+          disabled={isFetching || isDeletingCsv || !canFetchNow}
           style={{
             padding: "0.5rem 1rem",
             fontSize: "0.875rem",
@@ -450,13 +521,116 @@ function SourceCard({ source }: { source: Source }) {
             color: "white",
             border: "none",
             borderRadius: "0.375rem",
-            cursor: isFetching || !canFetchNow ? "not-allowed" : "pointer",
+            cursor: isFetching || isDeletingCsv || !canFetchNow ? "not-allowed" : "pointer",
             opacity: isFetching ? 0.7 : 1,
           }}
         >
           {isFetching ? "Fetching..." : isManualCsvSource ? "Manual Only" : "Fetch Now"}
         </button>
+        {isManualCsvSource && (
+          <>
+            <button
+              onClick={() => setShowUpload(!showUpload)}
+              disabled={isUploading}
+              style={{
+                padding: "0.5rem 1rem",
+                fontSize: "0.875rem",
+                background: showUpload ? "#059669" : "#10B981",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                cursor: isUploading ? "not-allowed" : "pointer",
+              }}
+            >
+              {showUpload ? "Hide Upload" : "Upload CSV"}
+            </button>
+            <button
+              onClick={handleDeleteCsvRecords}
+              disabled={isDeletingCsv}
+              style={{
+                padding: "0.5rem 1rem",
+                fontSize: "0.875rem",
+                background: isDeletingCsv ? "#9CA3AF" : "#DC2626",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                cursor: isDeletingCsv ? "not-allowed" : "pointer",
+                opacity: isDeletingCsv ? 0.7 : 1,
+              }}
+            >
+              {isDeletingCsv ? "Deleting..." : "Delete CSV Records"}
+            </button>
+          </>
+        )}
       </div>
+
+      {/* Inline CSV Upload (for rfpmart-csv) */}
+      {isManualCsvSource && showUpload && (
+        <div
+          style={{
+            marginTop: "1rem",
+            padding: "1rem",
+            background: "rgba(255, 255, 255, 0.5)",
+            borderRadius: "0.5rem",
+            border: `1px dashed ${colors.border}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            <input
+              type="checkbox"
+              id="filterItOnly"
+              checked={filterItOnly}
+              onChange={(e) => setFilterItOnly(e.target.checked)}
+              style={{ width: "1rem", height: "1rem", cursor: "pointer" }}
+            />
+            <label htmlFor="filterItOnly" style={{ fontSize: "0.875rem", cursor: "pointer" }}>
+              Only import IT-relevant RFPs (SW, ITES, NET, TELCOM, DRA, CSE)
+            </label>
+          </div>
+
+          <div
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleCsvUpload(file);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            style={{
+              padding: "1.5rem",
+              border: "2px dashed #9CA3AF",
+              borderRadius: "0.375rem",
+              textAlign: "center",
+              cursor: isUploading ? "not-allowed" : "pointer",
+              background: isUploading ? "rgba(0,0,0,0.05)" : "transparent",
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleCsvUpload(file);
+              }}
+              disabled={isUploading}
+              style={{ display: "none" }}
+            />
+            {isUploading ? (
+              <span style={{ color: "#6B7280" }}>Processing CSV...</span>
+            ) : (
+              <>
+                <div style={{ fontWeight: 500, marginBottom: "0.25rem" }}>
+                  Drop CSV file here or click to browse
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#9CA3AF" }}>
+                  Max 10MB • Format: ID, Country, State, Title, Deadline, URL
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Config Info */}
       <div

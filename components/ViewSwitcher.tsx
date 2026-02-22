@@ -23,7 +23,7 @@ const CogIcon = () => (
 
 
 const ViewSwitcher: React.FC<ViewSwitcherProps> = ({ currentView, onSwitchView }) => {
-  const views: { name: AppView; label: string; icon: JSX.Element, title: string }[] = [
+  const views: { name: AppView; label: string; icon: React.ReactElement; title: string }[] = [
     { name: 'home', label: 'Home', icon: <HomeIcon />, title: 'Switch to Home View (Processed RFPs)' },
     { name: 'rawData', label: 'Data', icon: <TableIcon />, title: 'Switch to Raw API Data View' },
     { name: 'admin', label: 'Admin', icon: <CogIcon />, title: 'Switch to Admin/Settings View'},

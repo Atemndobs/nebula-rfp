@@ -1,10 +1,11 @@
 
 
 import React from 'react';
-import { RFPWithEvaluation, EvaluationCriterionKey, CriterionEvaluationResult, RfpCardProps, AiProvider, EligibilityReason } from '../types';
+import { EvaluationCriterionKey, CriterionEvaluationResult, RfpCardProps, EligibilityReason } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import { NEBULA_LOGIX_CRITERIA_CONFIG } from '../constants';
 import { ProviderLogo } from './AiProviderLogos';
+import { useAnalytics } from '../src/hooks/useAnalytics';
 
 const TickIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
@@ -69,13 +70,12 @@ const EligibilityRuleDisplay: React.FC<{ reason: EligibilityReason }> = ({ reaso
 
   return (
     <div
-      className={`p-2 rounded-md text-xs flex items-center border ${
-        isPassed
+      className={`p-2 rounded-md text-xs flex items-center border ${isPassed
           ? 'bg-green-50 dark:bg-green-900 dark:bg-opacity-20 border-green-200 dark:border-green-700 text-green-700 dark:text-green-300'
           : isFlagged
             ? 'bg-yellow-50 dark:bg-yellow-900 dark:bg-opacity-20 border-yellow-200 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300'
             : 'bg-red-50 dark:bg-red-900 dark:bg-opacity-20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300'
-      }`}
+        }`}
       title={reason.evidence || reason.ruleName}
       role="listitem"
     >
@@ -102,6 +102,7 @@ const EligibilityRuleDisplay: React.FC<{ reason: EligibilityReason }> = ({ reaso
 
 const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onToggleSelection, onEvaluateSingleWithAi, isCurrentAiProviderConfigured, selectedAiProvider }) => {
   const { id, title, summary, deadline, url, evaluation, isEvaluating, location, category, source } = rfp;
+  const { track, events } = useAnalytics();
 
   // Map source to display-friendly name and color
   const getSourceBadge = (src?: string) => {
@@ -140,39 +141,44 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
     if (percentage >= 0.4) return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700';
     return 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700';
   };
-  
+
   const formatDate = (dateString?: string | null): string => {
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     } catch {
-      return dateString; 
+      return dateString;
     }
   };
 
   const evaluatedCriterionKeys = evaluation ? Object.keys(evaluation.criteriaResults) as EvaluationCriterionKey[] : [];
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
+    track(isSelected ? events.RFP_REMOVED_FROM_SHORTLIST : events.RFP_SHORTLISTED, {
+      rfpId: id,
+      source,
+      score: evaluation?.score,
+    });
     onToggleSelection(id);
   };
-  
+
   const baseButtonClasses = "px-3 py-1.5 text-xs font-medium border rounded-md shadow-vercel-sm transition-colors focus:outline-none focus:ring-2 focus:ring-vercel-blue focus:ring-offset-1 dark:focus:ring-offset-dark-accents-1 flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed";
   const primaryButtonClasses = `${baseButtonClasses} bg-geist-foreground dark:bg-dark-geist-foreground text-geist-background dark:text-dark-geist-background hover:opacity-80`;
   const secondaryButtonClasses = `${baseButtonClasses} bg-white dark:bg-dark-accents-2 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground`;
 
 
   return (
-    <article 
-        className={`relative bg-white dark:bg-dark-accents-1 border ${isSelected ? 'border-vercel-blue shadow-vercel-lg' : 'border-accents-2 dark:border-dark-accents-2 shadow-vercel-md'} rounded-lg p-6 transition-all duration-150 hover:shadow-vercel-lg`}
-        aria-labelledby={`rfp-title-${id}`}
+    <article
+      className={`relative bg-white dark:bg-dark-accents-1 border ${isSelected ? 'border-vercel-blue shadow-vercel-lg' : 'border-accents-2 dark:border-dark-accents-2 shadow-vercel-md'} rounded-lg p-6 transition-all duration-150 hover:shadow-vercel-lg`}
+      aria-labelledby={`rfp-title-${id}`}
     >
       <div className="absolute top-4 left-4 z-10">
         <input
           type="checkbox"
           checked={isSelected}
           onChange={handleCheckboxChange}
-          onClick={(e) => e.stopPropagation()} 
+          onClick={(e) => e.stopPropagation()}
           aria-labelledby={`rfp-title-${id}`}
           className="h-5 w-5 rounded border-accents-3 dark:border-accents-5 text-vercel-blue focus:ring-vercel-blue focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-dark-accents-1 bg-white dark:bg-dark-accents-2 checked:bg-vercel-blue"
         />
@@ -186,15 +192,14 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
           evaluation.eligibility ? (
             // Show both eligibility status and criteria score for Convex evaluations
             <div className="flex items-center gap-2">
-              <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                evaluation.eligibility.status === 'ELIGIBLE'
+              <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${evaluation.eligibility.status === 'ELIGIBLE'
                   ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700'
                   : evaluation.eligibility.status === 'PARTNER_REQUIRED'
                     ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700'
                     : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
-              }`} aria-label={`Eligibility: ${evaluation.eligibility.status}`}>
+                }`} aria-label={`Eligibility: ${evaluation.eligibility.status}`}>
                 {evaluation.eligibility.status === 'ELIGIBLE' ? 'Eligible' :
-                 evaluation.eligibility.status === 'PARTNER_REQUIRED' ? 'Partner Needed' : 'Not Eligible'}
+                  evaluation.eligibility.status === 'PARTNER_REQUIRED' ? 'Partner Needed' : 'Not Eligible'}
               </div>
               <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getScoreClasses(evaluation.score, evaluation.maxScore)}`} aria-label={`Score: ${evaluation.score} out of ${evaluation.maxScore}`}>
                 Score: {evaluation.score}/{evaluation.maxScore > 0 ? evaluation.maxScore : '-'}
@@ -208,7 +213,7 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
             </div>
           )
         )}
-         {isEvaluating && (
+        {isEvaluating && (
           <div className="px-2.5 py-1">
             <LoadingSpinner size="sm" />
           </div>
@@ -226,14 +231,14 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
           <span className="font-medium">Location:</span>
           <span className="ml-1 truncate" title={location || 'N/A'}>{location || 'N/A'}</span>
         </div>
-         {category && (
-            <div>
-                <span className="font-medium">Category:</span>
-                <span className="ml-1 truncate" title={category}>{category}</span>
-            </div>
+        {category && (
+          <div>
+            <span className="font-medium">Category:</span>
+            <span className="ml-1 truncate" title={category}>{category}</span>
+          </div>
         )}
       </div>
-      
+
       {evaluation && !isEvaluating && (
         <>
           <div className="mb-3 pl-8">
@@ -253,7 +258,7 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
               {evaluatedCriterionKeys.map(key => {
                 const result = evaluation.criteriaResults[key];
                 if (NEBULA_LOGIX_CRITERIA_CONFIG[key]?.isMasterEnabled) {
-                   return <CriterionDisplay key={key} criterionKey={key} result={result} />;
+                  return <CriterionDisplay key={key} criterionKey={key} result={result} />;
                 }
                 return null;
               })}
@@ -266,12 +271,12 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
               ))}
             </div>
           ) : (
-             !isEvaluating && !evaluation.eligibility && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">No criteria effectively enabled for this evaluation.</p>
+            !isEvaluating && !evaluation.eligibility && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">No criteria effectively enabled for this evaluation.</p>
           )}
         </>
       )}
       {evaluation && !evaluation.eligibility && Object.keys(evaluation.criteriaResults).length === 0 && !isEvaluating && (
-           <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">Evaluation data available, but no criteria were effectively enabled or met.</p>
+        <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary mb-4 pl-8">Evaluation data available, but no criteria were effectively enabled or met.</p>
       )}
 
 
@@ -291,7 +296,7 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); onEvaluateSingleWithAi(rfp);}}
+            onClick={(e) => { e.stopPropagation(); track(events.EVALUATION_RUN, { rfpId: id, source, provider: selectedAiProvider }); onEvaluateSingleWithAi(rfp); }}
             className={secondaryButtonClasses}
             disabled={!isCurrentAiProviderConfigured || isEvaluating}
             title={!isCurrentAiProviderConfigured ? `${selectedAiProvider} not configured` : (isEvaluating ? "Evaluating..." : `Re-evaluate with ${selectedAiProvider}`)}
@@ -301,7 +306,7 @@ const RfpCard: React.FC<RfpCardProps> = ({ rfp, onViewDetails, isSelected, onTog
             <span>{isEvaluating ? `${selectedAiProvider} ...` : `${selectedAiProvider} Eval`}</span>
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onViewDetails(rfp);}}
+            onClick={(e) => { e.stopPropagation(); track(events.RFP_VIEWED, { rfpId: id, source, score: evaluation?.score }); onViewDetails(rfp); }}
             className={primaryButtonClasses}
             aria-label={`View details for RFP: ${title}`}
             disabled={isEvaluating}

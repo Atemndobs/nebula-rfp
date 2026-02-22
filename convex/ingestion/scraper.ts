@@ -1,7 +1,8 @@
 "use node";
 
-import { action, internalAction } from "../_generated/server";
+import { action } from "../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { scrapeRfpMartDetailPage, type ScrapedRfpDetail } from "./rfpmartScraper";
 
 /**
@@ -11,44 +12,31 @@ export const scrapeRfpDetail = action({
   args: {
     url: v.string(),
   },
-  handler: async (_ctx, args): Promise<ScrapedRfpDetail> => {
+  handler: async (ctx, args): Promise<ScrapedRfpDetail> => {
+    const sourceRecord = await ctx.runQuery(internal.sources.getByNameInternal, {
+      name: "rfpmart",
+    });
+
+    if (sourceRecord && !sourceRecord.enabled) {
+      throw new Error("Live RFPMart search is disabled in source settings.");
+    }
+
+    let hostname = "";
+    try {
+      hostname = new URL(args.url).hostname.toLowerCase();
+    } catch {
+      // Keep empty and fail validation below.
+    }
+
+    if (!hostname.includes("rfpmart.com")) {
+      throw new Error("Scraper only supports RFPMart URLs.");
+    }
+
     try {
       return await scrapeRfpMartDetailPage(args.url);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to scrape RFP detail: ${errorMsg}`);
     }
-  },
-});
-
-/**
- * Internal action for batch scraping (used by ingestion cron)
- */
-export const batchScrapeDetails = internalAction({
-  args: {
-    urls: v.array(v.string()),
-  },
-  handler: async (_ctx, args) => {
-    const results: { url: string; success: boolean; data?: ScrapedRfpDetail; error?: string }[] = [];
-
-    for (const url of args.urls) {
-      try {
-        const detail = await scrapeRfpMartDetailPage(url);
-        results.push({ url, success: true, data: detail });
-
-        // Rate limiting - wait between requests to be polite
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        results.push({ url, success: false, error: errorMsg });
-      }
-    }
-
-    return {
-      total: args.urls.length,
-      success: results.filter((r) => r.success).length,
-      failed: results.filter((r) => !r.success).length,
-      results,
-    };
   },
 });

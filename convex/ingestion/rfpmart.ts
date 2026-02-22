@@ -33,6 +33,8 @@ const FASTAPI_RFP_BASE_URL = "https://fastapi.curator.atemkeng.eu/api/v1/rfp";
 const SOURCE_URL_CANDIDATES = {
   web: [
     "https://www.rfpmart.com/web-design-and-development-rfp-government-contract.html",
+    "https://www.rfpmart.com/website-design-and-development-rfp-government-contract.html",
+    "https://www.rfpmart.com/web-site-design-and-development-rfp-government-contract.html",
   ],
   mobile: [
     "https://www.rfpmart.com/mobile-application-development-rfp-government-contract.html",
@@ -194,6 +196,21 @@ export const fetchOpportunities = internalAction({
     let newCount = 0;
     let updatedCount = 0;
     let evaluatedCount = 0;
+
+    const sourceRecord = await ctx.runQuery(internal.sources.getByNameInternal, {
+      name: "rfpmart",
+    });
+
+    if (sourceRecord && !sourceRecord.enabled) {
+      return {
+        success: true,
+        fetched: 0,
+        new: 0,
+        updated: 0,
+        evaluated: 0,
+        errors: 0,
+      };
+    }
 
     try {
       for (const feed of feeds) {

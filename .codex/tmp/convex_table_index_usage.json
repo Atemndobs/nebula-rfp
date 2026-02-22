@@ -1,0 +1,310 @@
+{
+  "tables": [
+    {
+      "table": "users",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "opportunities",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "sources",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "sourceQueries",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "evaluations",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "pursuits",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "pursuitBriefs",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "complianceMatrices",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "pursuitNotes",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "pursuitActivity",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "eligibilityRules",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "scoringConfig",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "auditLogs",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "contentBlocks",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "caseStudies",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "teamBios",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "proposalTemplates",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "ingestionLogs",
+      "indexes": [],
+      "sindexes": []
+    },
+    {
+      "table": "statsAggregation",
+      "indexes": [],
+      "sindexes": []
+    }
+  ],
+  "usage": {
+    "users": {
+      "query": 14,
+      "insert": 1,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 2,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "opportunities": {
+      "query": 18,
+      "insert": 2,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 8,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "sources": {
+      "query": 9,
+      "insert": 1,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 4,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "sourceQueries": {
+      "query": 2,
+      "insert": 2,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 2,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "evaluations": {
+      "query": 18,
+      "insert": 3,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "pursuits": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "pursuitBriefs": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "complianceMatrices": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "pursuitNotes": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "pursuitActivity": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "eligibilityRules": {
+      "query": 10,
+      "insert": 2,
+      "get": 0,
+      "patch": 2,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "scoringConfig": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "auditLogs": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "contentBlocks": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "caseStudies": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "teamBios": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "proposalTemplates": {
+      "query": 0,
+      "insert": 0,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "ingestionLogs": {
+      "query": 5,
+      "insert": 1,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 1,
+      "indexes": {},
+      "searchIndexes": {}
+    },
+    "statsAggregation": {
+      "query": 11,
+      "insert": 3,
+      "get": 0,
+      "patch": 0,
+      "replace": 0,
+      "delete": 0,
+      "id": 0,
+      "indexes": {},
+      "searchIndexes": {}
+    }
+  }
+}

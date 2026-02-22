@@ -1,6 +1,5 @@
 
 import { KeywordAnalysisResult, ProviderConfig } from '../types';
-import { API_KEY_ERROR_MESSAGE } from '../constants'; // Re-using for general "not configured" message
 
 export const isOllamaAvailable = (config: ProviderConfig | undefined): boolean => {
   return !!config?.baseUrl;

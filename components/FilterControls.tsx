@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { FilterState, FilterControlsProps, RfpSourceCategory } from '../types';
+import { FilterState, FilterControlsProps } from '../types';
+import { useAnalytics } from '../src/hooks/useAnalytics';
 
 const DesktopIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -15,15 +16,15 @@ const MobileIcon = () => (
 );
 
 const UpArrowIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-    </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+  </svg>
 );
 
 const DownArrowIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-    </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+  </svg>
 );
 
 const PlugSocketIcon = () => (
@@ -46,8 +47,8 @@ const CheckIcon = () => (
 
 const FunnelIcon = () => ( // Plain funnel icon
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3L4 10H20L12 3Z" /> 
-    <path strokeLinecap="round" strokeLinejoin="round" d="M10 10H14V20H10V10Z" /> 
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3L4 10H20L12 3Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10 10H14V20H10V10Z" />
   </svg>
 );
 
@@ -68,6 +69,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   currentRfpLimit,
   onChangeRfpLimit,
 }) => {
+  const { track, events } = useAnalytics();
   const [localLimit, setLocalLimit] = useState<string | number>(currentRfpLimit);
 
   useEffect(() => {
@@ -77,12 +79,15 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
-      onFilterChange(name as keyof FilterState, (e.target as HTMLInputElement).checked);
+      const checked = (e.target as HTMLInputElement).checked;
+      track(events.FILTER_APPLIED, { filterType: name, value: checked });
+      onFilterChange(name as keyof FilterState, checked);
     } else {
+      track(events.FILTER_APPLIED, { filterType: name, value });
       onFilterChange(name as keyof FilterState, value);
     }
   };
-  
+
   const handleLocalLimitInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalLimit(e.target.value); // Keep as string while typing for better UX
   };
@@ -97,20 +102,20 @@ const FilterControls: React.FC<FilterControlsProps> = ({
       const parsedNum = parseInt(currentLocalValueStr, 10);
       if (isNaN(parsedNum)) {
         // If parsing fails (e.g. "abc"), revert to the prop value rather than a fixed default
-        newNumericLimit = currentRfpLimit; 
+        newNumericLimit = currentRfpLimit;
       } else {
         newNumericLimit = parsedNum;
       }
     }
     const validatedNum = Math.max(1, Math.min(newNumericLimit, 100));
     setLocalLimit(validatedNum); // Update UI to reflect the validated or reverted number
-    
+
     // Call prop function only if the validated number is different from what App.tsx currently holds
     if (validatedNum !== currentRfpLimit) {
       onChangeRfpLimit(validatedNum);
     }
   };
-  
+
   const handleIncrementLocalLimit = () => {
     const numLimit = Number(String(localLimit).trim()); // Ensure it's a string first, then number
     setLocalLimit(Math.min(isNaN(numLimit) ? 1 : numLimit + 1, 100));
@@ -123,22 +128,22 @@ const FilterControls: React.FC<FilterControlsProps> = ({
 
   const inputBaseClasses = "p-2.5 border border-accents-2 dark:border-dark-accents-2 rounded-md shadow-vercel-sm focus:ring-2 focus:ring-vercel-blue focus:border-vercel-blue text-sm bg-geist-background dark:bg-dark-accents-1 text-geist-foreground dark:text-dark-geist-foreground placeholder-accents-4 dark:placeholder-accents-5";
   const actionButtonBaseClasses = "px-2.5 py-2.5 border rounded-md text-sm font-medium transition-colors shadow-vercel-sm flex items-center justify-center";
-  
+
   const sourceSwitcherButtonClass = (isActive: boolean) =>
     `px-2 py-1.5 rounded-sm text-sm font-medium transition-all duration-150 flex items-center space-x-1.5 justify-center ${ // Added justify-center, removed flex-1
-      isActive
-        ? 'bg-white dark:bg-dark-accents-2 text-geist-foreground dark:text-dark-geist-foreground shadow-sm'
-        : 'text-accents-5 dark:text-accents-4 hover:bg-accents-2 dark:hover:bg-dark-accents-2'
+    isActive
+      ? 'bg-white dark:bg-dark-accents-2 text-geist-foreground dark:text-dark-geist-foreground shadow-sm'
+      : 'text-accents-5 dark:text-accents-4 hover:bg-accents-2 dark:hover:bg-dark-accents-2'
     }`;
-  
+
   const stepperButtonClass = "px-2 py-[0.275rem] bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary hover:bg-accents-1 dark:hover:bg-dark-accents-2 transition-colors focus:outline-none";
 
 
   return (
     <div className="bg-white dark:bg-dark-accents-1 p-4 rounded-lg shadow-vercel-md mb-8 border border-accents-2 dark:border-dark-accents-2">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-10 gap-4 items-end">
-        
-        <div className="lg:col-span-2 md:col-span-1 sm:col-span-2">
+      <div className="flex flex-wrap xl:flex-nowrap items-center gap-3 w-full">
+
+        <div className="flex-1 min-w-[200px]">
           <input
             type="text"
             id="keyword"
@@ -151,71 +156,72 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           />
         </div>
 
-        <div className="lg:col-span-2 md:col-span-1 sm:col-span-1">
-          <div className="flex p-0.5 bg-accents-1 dark:bg-dark-accents-1 border border-accents-2 dark:border-dark-accents-2 rounded-md shadow-vercel-sm">
-            <button
-              onClick={() => onSwitchRfpSourceCategory('web')}
-              aria-pressed={currentRfpSourceCategory === 'web'}
-              title="Switch to Web Development RFPs"
-              className={`${sourceSwitcherButtonClass(currentRfpSourceCategory === 'web')}`}
-            >
-              <DesktopIcon />
-              <span className="sr-only sm:not-sr-only">Web</span>
-            </button>
-            <button
-              onClick={() => onSwitchRfpSourceCategory('mobile')}
-              aria-pressed={currentRfpSourceCategory === 'mobile'}
-              title="Switch to Mobile Development RFPs"
-              className={`${sourceSwitcherButtonClass(currentRfpSourceCategory === 'mobile')}`}
-            >
-              <MobileIcon />
-              <span className="sr-only sm:not-sr-only">Mobile</span>
-            </button>
-          </div>
+        <div className="shrink-0 flex p-0.5 bg-accents-1 dark:bg-dark-accents-1 border border-accents-2 dark:border-dark-accents-2 rounded-md shadow-vercel-sm">
+          <button
+            type="button"
+            onClick={() => { track(events.DATA_SOURCE_TOGGLED, { filterType: 'sourceCategory', value: 'web' }); onSwitchRfpSourceCategory('web'); }}
+            aria-pressed={currentRfpSourceCategory === 'web'}
+            title="Switch to Web Development RFPs"
+            className={`${sourceSwitcherButtonClass(currentRfpSourceCategory === 'web')}`}
+          >
+            <DesktopIcon />
+            <span className="sr-only sm:not-sr-only">Web</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { track(events.DATA_SOURCE_TOGGLED, { filterType: 'sourceCategory', value: 'mobile' }); onSwitchRfpSourceCategory('mobile'); }}
+            aria-pressed={currentRfpSourceCategory === 'mobile'}
+            title="Switch to Mobile Development RFPs"
+            className={`${sourceSwitcherButtonClass(currentRfpSourceCategory === 'mobile')}`}
+          >
+            <MobileIcon />
+            <span className="sr-only sm:not-sr-only">Mobile</span>
+          </button>
         </div>
-        
-        <div className="lg:col-span-2 md:col-span-1 sm:col-span-1">
-           <div className="flex items-stretch rounded-md border border-accents-2 dark:border-dark-accents-2 shadow-vercel-sm h-[42px]"> {/* Ensure parent has fixed height or items-stretch works */}
-            <input
-              type="number"
-              id="rfpLimit"
-              name="rfpLimit"
-              value={localLimit}
-              onChange={handleLocalLimitInputChange}
-              min="1"
-              max="100" 
-              placeholder="Limit"
-              className="p-2.5 text-sm bg-geist-background dark:bg-dark-accents-1 text-geist-foreground dark:text-dark-geist-foreground placeholder-accents-4 dark:placeholder-accents-5 w-16 text-center focus:z-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none rounded-l-md border-none focus:ring-0"
-              aria-label="RFP fetch limit"
-            />
+
+        <div className="shrink-0 flex items-stretch rounded-md border border-accents-2 dark:border-dark-accents-2 shadow-vercel-sm h-[42px]">
+          <input
+            type="number"
+            id="rfpLimit"
+            name="rfpLimit"
+            value={localLimit}
+            onChange={handleLocalLimitInputChange}
+            min="1"
+            max="100"
+            placeholder="Limit"
+            className="p-2.5 text-sm bg-geist-background dark:bg-dark-accents-1 text-geist-foreground dark:text-dark-geist-foreground placeholder-accents-4 dark:placeholder-accents-5 w-16 text-center focus:z-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none rounded-l-md border-none focus:ring-0"
+            aria-label="RFP fetch limit"
+          />
+          <button
+            type="button"
+            onClick={handleApplyLimit}
+            className="p-2.5 border-l border-r border-accents-2 dark:border-dark-accents-2 bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary hover:bg-accents-1 dark:hover:bg-dark-accents-2 transition-colors focus:outline-none focus:z-10"
+            aria-label="Apply limit"
+            title="Apply new limit"
+          >
+            <CheckIcon />
+          </button>
+          <div className="flex flex-col border-none">
             <button
-                onClick={handleApplyLimit}
-                className="p-2.5 border-l border-r border-accents-2 dark:border-dark-accents-2 bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary hover:bg-accents-1 dark:hover:bg-dark-accents-2 transition-colors focus:outline-none focus:z-10"
-                aria-label="Apply limit"
-                title="Apply new limit"
+              type="button"
+              onClick={handleIncrementLocalLimit}
+              className={`${stepperButtonClass} rounded-tr-md border-b border-accents-2 dark:border-dark-accents-2`}
+              aria-label="Increment limit"
             >
-                <CheckIcon />
+              <UpArrowIcon />
             </button>
-            <div className="flex flex-col border-none"> {/* Stepper container is borderless, individual buttons handle visual separation if needed */}
-                <button 
-                    onClick={handleIncrementLocalLimit} 
-                    className={`${stepperButtonClass} rounded-tr-md border-b border-accents-2 dark:border-dark-accents-2`} 
-                    aria-label="Increment limit"
-                >
-                    <UpArrowIcon />
-                </button>
-                <button 
-                    onClick={handleDecrementLocalLimit} 
-                    className={`${stepperButtonClass} rounded-br-md`}
-                    aria-label="Decrement limit"
-                >
-                    <DownArrowIcon />
-                </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleDecrementLocalLimit}
+              className={`${stepperButtonClass} rounded-br-md`}
+              aria-label="Decrement limit"
+            >
+              <DownArrowIcon />
+            </button>
           </div>
         </div>
 
-        <div className="lg:col-span-2 md:col-span-1 sm:col-span-1">
+        <div className="shrink-0 w-36">
           <input
             type="date"
             id="maxDeadline"
@@ -227,12 +233,12 @@ const FilterControls: React.FC<FilterControlsProps> = ({
             title="Maximum Deadline"
           />
         </div>
-        
-        <div className="lg:col-span-2 md:col-span-3 sm:col-span-2 flex items-end gap-2 h-full flex-wrap"> 
+
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => onFilterChange('hideOutliers', !filters.hideOutliers)}
-            className={`${actionButtonBaseClasses}
+            className={`${actionButtonBaseClasses} whitespace-nowrap
               ${filters.hideOutliers
                 ? 'bg-vercel-blue text-white border-vercel-blue hover:bg-opacity-90'
                 : 'bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground'
@@ -241,8 +247,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({
             aria-pressed={filters.hideOutliers}
           >
             <OutlierIcon />
-            <span className="hidden sm:inline">Hide Outliers</span>
-            <span className="sm:hidden">Outliers</span>
+            <span className="hidden sm:inline ml-1.5">Hide Outliers</span>
+            <span className="sm:hidden ml-1.5">Outliers</span>
             <input
               type="checkbox"
               id="hideOutliers"
@@ -256,34 +262,35 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           <button
             type="button"
             onClick={() => onFilterChange('showOnlyFit', !filters.showOnlyFit)}
-            className={`${actionButtonBaseClasses} {/* Removed w-full */}
-              ${filters.showOnlyFit 
-                ? 'bg-vercel-blue text-white border-vercel-blue hover:bg-opacity-90' 
+            className={`${actionButtonBaseClasses} whitespace-nowrap
+              ${filters.showOnlyFit
+                ? 'bg-vercel-blue text-white border-vercel-blue hover:bg-opacity-90'
                 : 'bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground'
               }`}
             title="Toggle 'Good Fits' Only"
             aria-pressed={filters.showOnlyFit}
           >
             <PlugSocketIcon />
-            <span className="hidden sm:inline">Good Fits</span>
-             <span className="sm:hidden">Fits</span>
+            <span className="hidden sm:inline ml-1">Good Fits</span>
+            <span className="sm:hidden ml-1">Fits</span>
             <input
               type="checkbox"
               id="showOnlyFit"
               name="showOnlyFit"
               checked={filters.showOnlyFit}
-              onChange={handleInputChange} 
+              onChange={handleInputChange}
               className="sr-only"
             />
           </button>
-        
+
           <button
-            onClick={onResetFilters}
+            type="button"
+            onClick={() => { track(events.FILTER_APPLIED, { filterType: 'reset', value: 'all' }); onResetFilters(); }}
             className={`${actionButtonBaseClasses} bg-white dark:bg-dark-accents-1 text-geist-secondary dark:text-dark-geist-secondary border-accents-2 dark:border-dark-accents-2 hover:border-accents-4 dark:hover:border-accents-5 hover:text-geist-foreground dark:hover:text-dark-geist-foreground`}
             aria-label="Reset Filters"
             title="Reset Filters"
           >
-            <FunnelIcon /> {/* Changed from FilterXIcon */}
+            <FunnelIcon />
           </button>
         </div>
       </div>

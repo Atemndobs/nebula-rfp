@@ -1,0 +1,1102 @@
+{
+  "generatedAt": "2026-02-21T15:57:16.359Z",
+  "functions": [
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "listRules",
+      "kind": "query",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:230:  const rules = useQuery(api.eligibilityRules.listRules);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "getRule",
+      "kind": "query",
+      "dot": "eligibilityRules",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "getOrganizationConfig",
+      "kind": "query",
+      "dot": "eligibilityRules",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "getEvaluation",
+      "kind": "query",
+      "dot": "eligibilityRules",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "getEligibilityStats",
+      "kind": "query",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:231:  const stats = useQuery(api.eligibilityRules.getEligibilityStats);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "initializeRules",
+      "kind": "mutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:239:  const initializeRules = useMutation(api.eligibilityRules.initializeRules);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "updateRule",
+      "kind": "mutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:240:  const updateRule = useMutation(api.eligibilityRules.updateRule);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "addKeyword",
+      "kind": "mutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:241:  const addKeyword = useMutation(api.eligibilityRules.addKeyword);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "removeKeyword",
+      "kind": "mutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:242:  const removeKeyword = useMutation(api.eligibilityRules.removeKeyword);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "evaluateOpportunity",
+      "kind": "mutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 0,
+      "internalRefCount": 2,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:361:            await ctx.runMutation(internal.eligibilityRules.evaluateOpportunityInternal, {",
+        "./convex/ingestion/rfpmart.ts:240:            await ctx.runMutation(internal.eligibilityRules.evaluateOpportunityInternal, {"
+      ]
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "evaluateOpportunityInternal",
+      "kind": "internalMutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 0,
+      "internalRefCount": 2,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:361:            await ctx.runMutation(internal.eligibilityRules.evaluateOpportunityInternal, {",
+        "./convex/ingestion/rfpmart.ts:240:            await ctx.runMutation(internal.eligibilityRules.evaluateOpportunityInternal, {"
+      ]
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "evaluateAllPending",
+      "kind": "mutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 3,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:243:  const evaluateAll = useMutation(api.eligibilityRules.evaluateAllPending);",
+        "./App.tsx:327:  const evaluateAllPending = useMutation(api.eligibilityRules.evaluateAllPending);",
+        "./components/admin/SourcesAdmin.tsx:29:  const evaluateAllPending = useMutation(api.eligibilityRules.evaluateAllPending);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "resetAllEvaluations",
+      "kind": "mutation",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:244:  const resetEvaluations = useMutation(api.eligibilityRules.resetAllEvaluations);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/eligibilityRules.ts",
+      "module": "eligibilityRules",
+      "name": "exportRules",
+      "kind": "query",
+      "dot": "eligibilityRules",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/EligibilityRulesAdmin.tsx:236:    api.eligibilityRules.exportRules,"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/logs.ts",
+      "module": "ingestion/logs",
+      "name": "create",
+      "kind": "internalMutation",
+      "dot": "ingestion.logs",
+      "apiRefCount": 0,
+      "internalRefCount": 7,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:126:      await ctx.runMutation(internal.ingestion.logs.create, {",
+        "./convex/ingestion/samGov.ts:156:        await ctx.runMutation(internal.ingestion.logs.create, {",
+        "./convex/ingestion/samGov.ts:392:      await ctx.runMutation(internal.ingestion.logs.create, {",
+        "./convex/ingestion/samGov.ts:442:      await ctx.runMutation(internal.ingestion.logs.create, {",
+        "./convex/ingestion/rfpmartCsv.ts:276:    await ctx.runMutation(internal.ingestion.logs.create, {",
+        "./convex/ingestion/rfpmart.ts:271:      await ctx.runMutation(internal.ingestion.logs.create, {",
+        "./convex/ingestion/rfpmart.ts:303:        await ctx.runMutation(internal.ingestion.logs.create, {"
+      ]
+    },
+    {
+      "file": "convex/ingestion/logs.ts",
+      "module": "ingestion/logs",
+      "name": "complete",
+      "kind": "internalMutation",
+      "dot": "ingestion.logs",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/logs.ts",
+      "module": "ingestion/logs",
+      "name": "list",
+      "kind": "query",
+      "dot": "ingestion.logs",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/IngestionLogs.tsx:6:  const logs = useQuery(api.ingestion.logs.list, { limit: 20 });"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/logs.ts",
+      "module": "ingestion/logs",
+      "name": "getLatestBySource",
+      "kind": "query",
+      "dot": "ingestion.logs",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/logs.ts",
+      "module": "ingestion/logs",
+      "name": "getStats",
+      "kind": "query",
+      "dot": "ingestion.logs",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/IngestionLogs.tsx:7:  const stats = useQuery(api.ingestion.logs.getStats, { daysBack: 7 });"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/rfpmart.ts",
+      "module": "ingestion/rfpmart",
+      "name": "fetchOpportunities",
+      "kind": "internalAction",
+      "dot": "ingestion.rfpmart",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/rfpmart.ts:347:    return await ctx.runAction(internal.ingestion.rfpmart.fetchOpportunities, args);"
+      ]
+    },
+    {
+      "file": "convex/ingestion/rfpmart.ts",
+      "module": "ingestion/rfpmart",
+      "name": "triggerFetch",
+      "kind": "action",
+      "dot": "ingestion.rfpmart",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SourcesAdmin.tsx:236:  const triggerRfpmart = useAction(api.ingestion.rfpmart.triggerFetch);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/rfpmartCsv.ts",
+      "module": "ingestion/rfpmartCsv",
+      "name": "processCSV",
+      "kind": "internalAction",
+      "dot": "ingestion.rfpmartCsv",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/rfpmartCsv.ts:322:    return await ctx.runAction(internal.ingestion.rfpmartCsv.processCSV, args);"
+      ]
+    },
+    {
+      "file": "convex/ingestion/rfpmartCsv.ts",
+      "module": "ingestion/rfpmartCsv",
+      "name": "uploadCSV",
+      "kind": "action",
+      "dot": "ingestion.rfpmartCsv",
+      "apiRefCount": 2,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./App.tsx:310:  const uploadCsv = useAction(api.ingestion.rfpmartCsv.uploadCSV);",
+        "./components/admin/CsvUpload.tsx:16:  const uploadCSV = useAction(api.ingestion.rfpmartCsv.uploadCSV);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/rfpmartEnrich.ts",
+      "module": "ingestion/rfpmartEnrich",
+      "name": "enrichPending",
+      "kind": "internalAction",
+      "dot": "ingestion.rfpmartEnrich",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/crons.ts:33:  internal.ingestion.rfpmartEnrich.enrichPending,"
+      ]
+    },
+    {
+      "file": "convex/ingestion/rfpmartEnrichQueries.ts",
+      "module": "ingestion/rfpmartEnrichQueries",
+      "name": "getPendingEnrichment",
+      "kind": "internalQuery",
+      "dot": "ingestion.rfpmartEnrichQueries",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/rfpmartEnrich.ts:32:        }> = await ctx.runQuery(internal.ingestion.rfpmartEnrichQueries.getPendingEnrichment, {"
+      ]
+    },
+    {
+      "file": "convex/ingestion/samGov.ts",
+      "module": "ingestion/samGov",
+      "name": "fetchOpportunities",
+      "kind": "internalAction",
+      "dot": "ingestion.samGov",
+      "apiRefCount": 0,
+      "internalRefCount": 2,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/crons.ts:10:  internal.ingestion.samGov.fetchOpportunities,",
+        "./convex/ingestion/samGov.ts:478:    return await ctx.runAction(internal.ingestion.samGov.fetchOpportunities, args);"
+      ]
+    },
+    {
+      "file": "convex/ingestion/samGov.ts",
+      "module": "ingestion/samGov",
+      "name": "triggerFetch",
+      "kind": "action",
+      "dot": "ingestion.samGov",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SourcesAdmin.tsx:235:  const triggerSamGov = useAction(api.ingestion.samGov.triggerFetch);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/samGovBackfill.ts",
+      "module": "ingestion/samGovBackfill",
+      "name": "backfillDescriptions",
+      "kind": "internalAction",
+      "dot": "ingestion.samGovBackfill",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGovBackfill.ts:224:    return await ctx.runAction(internal.ingestion.samGovBackfill.backfillDescriptions, args);"
+      ]
+    },
+    {
+      "file": "convex/ingestion/samGovBackfill.ts",
+      "module": "ingestion/samGovBackfill",
+      "name": "triggerBackfill",
+      "kind": "action",
+      "dot": "ingestion.samGovBackfill",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SamGovManager.tsx:20:  const backfillAction = useAction(api.ingestion.samGovBackfill.triggerBackfill);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/scraper.ts",
+      "module": "ingestion/scraper",
+      "name": "scrapeRfpDetail",
+      "kind": "action",
+      "dot": "ingestion.scraper",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./App.tsx:309:  const scrapeRfpDetail = useAction(api.ingestion.scraper.scrapeRfpDetail);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/ingestion/scraper.ts",
+      "module": "ingestion/scraper",
+      "name": "batchScrapeDetails",
+      "kind": "internalAction",
+      "dot": "ingestion.scraper",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "list",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 1,
+      "internalRefCount": 1,
+      "apiRefs": [
+        "./App.tsx:322:  const convexOpportunities = useQuery(api.opportunities.listWithEvaluations, {"
+      ],
+      "internalRefs": [
+        "./convex/ingestion/samGovBackfill.ts:46:    const opportunities: any[] = await ctx.runQuery(internal.opportunities.listBySource, {"
+      ]
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "getById",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "search",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "getByDueDate",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "getStats",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "upsert",
+      "kind": "internalMutation",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 3,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:351:          const result = await ctx.runMutation(internal.opportunities.upsert, normalized);",
+        "./convex/ingestion/rfpmartCsv.ts:244:        const results = await ctx.runMutation(internal.opportunities.upsertBatch, {",
+        "./convex/ingestion/rfpmart.ts:230:          const result = await ctx.runMutation(internal.opportunities.upsert, normalized);"
+      ]
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "upsertBatch",
+      "kind": "internalMutation",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/rfpmartCsv.ts:244:        const results = await ctx.runMutation(internal.opportunities.upsertBatch, {"
+      ]
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "listWithEvaluations",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./App.tsx:322:  const convexOpportunities = useQuery(api.opportunities.listWithEvaluations, {"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "debugSamGovRecords",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SamGovManager.tsx:10:  const debugData = useQuery(api.opportunities.debugSamGovRecords, { limit: 3 });"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "exportSamGovRecords",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "deleteAllSamGovRecords",
+      "kind": "mutation",
+      "dot": "opportunities",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SamGovManager.tsx:11:  const deleteRecords = useMutation(api.opportunities.deleteAllSamGovRecords);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "deleteAllRfpMartCsvRecords",
+      "kind": "mutation",
+      "dot": "opportunities",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SourcesAdmin.tsx:237:  const deleteRfpmartCsv = useMutation(api.opportunities.deleteAllRfpMartCsvRecords);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "remove",
+      "kind": "mutation",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "listBySource",
+      "kind": "internalQuery",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGovBackfill.ts:46:    const opportunities: any[] = await ctx.runQuery(internal.opportunities.listBySource, {"
+      ]
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "update",
+      "kind": "internalMutation",
+      "dot": "opportunities",
+      "apiRefCount": 0,
+      "internalRefCount": 3,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/rfpmartEnrich.ts:61:                await ctx.runMutation(internal.opportunities.update, {",
+        "./convex/ingestion/samGovBackfill.ts:145:          await ctx.runMutation(internal.opportunities.update, {",
+        "./convex/ingestion/samGovBackfill.ts:164:        await ctx.runMutation(internal.opportunities.update, {"
+      ]
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "clearAllOpportunities",
+      "kind": "mutation",
+      "dot": "opportunities",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/DatabaseSettings.tsx:21:  const clearAll = useMutation(api.opportunities.clearAllOpportunities);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/opportunities.ts",
+      "module": "opportunities",
+      "name": "getCount",
+      "kind": "query",
+      "dot": "opportunities",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/DatabaseSettings.tsx:20:  const counts = useQuery(api.opportunities.getCount);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sourceQueries.ts",
+      "module": "sourceQueries",
+      "name": "listBySource",
+      "kind": "query",
+      "dot": "sourceQueries",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sourceQueries.ts",
+      "module": "sourceQueries",
+      "name": "create",
+      "kind": "mutation",
+      "dot": "sourceQueries",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sourceQueries.ts",
+      "module": "sourceQueries",
+      "name": "update",
+      "kind": "mutation",
+      "dot": "sourceQueries",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sourceQueries.ts",
+      "module": "sourceQueries",
+      "name": "remove",
+      "kind": "mutation",
+      "dot": "sourceQueries",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sourceQueries.ts",
+      "module": "sourceQueries",
+      "name": "initializeDefaults",
+      "kind": "mutation",
+      "dot": "sourceQueries",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "list",
+      "kind": "query",
+      "dot": "sources",
+      "apiRefCount": 2,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./App.tsx:313:  const enabledSources = useQuery(api.sources.listEnabled);",
+        "./components/admin/SourcesAdmin.tsx:26:  const sources = useQuery(api.sources.list);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "listEnabled",
+      "kind": "query",
+      "dot": "sources",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./App.tsx:313:  const enabledSources = useQuery(api.sources.listEnabled);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "getByName",
+      "kind": "query",
+      "dot": "sources",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:148:    const sourceRecord = await ctx.runQuery(internal.sources.getByNameInternal, { name: \"sam.gov\" });"
+      ]
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "getByNameInternal",
+      "kind": "internalQuery",
+      "dot": "sources",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:148:    const sourceRecord = await ctx.runQuery(internal.sources.getByNameInternal, { name: \"sam.gov\" });"
+      ]
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "getHealthSummary",
+      "kind": "query",
+      "dot": "sources",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SourcesAdmin.tsx:27:  const healthSummary = useQuery(api.sources.getHealthSummary);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "initializeDefaults",
+      "kind": "mutation",
+      "dot": "sources",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SourcesAdmin.tsx:28:  const initializeDefaults = useMutation(api.sources.initializeDefaults);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "update",
+      "kind": "mutation",
+      "dot": "sources",
+      "apiRefCount": 1,
+      "internalRefCount": 7,
+      "apiRefs": [
+        "./components/admin/SourcesAdmin.tsx:234:  const updateSource = useMutation(api.sources.update);"
+      ],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:137:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/samGov.ts:167:        await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/samGov.ts:382:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/samGov.ts:434:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/rfpmartCsv.ts:266:    await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/rfpmart.ts:255:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/rfpmart.ts:296:        await ctx.runMutation(internal.sources.updateHealth, {"
+      ]
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "updateHealth",
+      "kind": "internalMutation",
+      "dot": "sources",
+      "apiRefCount": 0,
+      "internalRefCount": 7,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/ingestion/samGov.ts:137:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/samGov.ts:167:        await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/samGov.ts:382:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/samGov.ts:434:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/rfpmartCsv.ts:266:    await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/rfpmart.ts:255:      await ctx.runMutation(internal.sources.updateHealth, {",
+        "./convex/ingestion/rfpmart.ts:296:        await ctx.runMutation(internal.sources.updateHealth, {"
+      ]
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "resetDailyCounts",
+      "kind": "internalMutation",
+      "dot": "sources",
+      "apiRefCount": 0,
+      "internalRefCount": 1,
+      "apiRefs": [],
+      "internalRefs": [
+        "./convex/crons.ts:26:  internal.sources.resetDailyCounts"
+      ]
+    },
+    {
+      "file": "convex/sources.ts",
+      "module": "sources",
+      "name": "migrateSamGovToDaily",
+      "kind": "mutation",
+      "dot": "sources",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./components/admin/SourcesAdmin.tsx:30:  const migrateSamGov = useMutation(api.sources.migrateSamGovToDaily);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/stats.ts",
+      "module": "stats",
+      "name": "getEligibilityStats",
+      "kind": "query",
+      "dot": "stats",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/stats.ts",
+      "module": "stats",
+      "name": "initializeEligibilityStats",
+      "kind": "mutation",
+      "dot": "stats",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/stats.ts",
+      "module": "stats",
+      "name": "incrementStatus",
+      "kind": "internalMutation",
+      "dot": "stats",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/stats.ts",
+      "module": "stats",
+      "name": "decrementStatus",
+      "kind": "internalMutation",
+      "dot": "stats",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/stats.ts",
+      "module": "stats",
+      "name": "changeStatus",
+      "kind": "internalMutation",
+      "dot": "stats",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/stats.ts",
+      "module": "stats",
+      "name": "resetStats",
+      "kind": "internalMutation",
+      "dot": "stats",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/users.ts",
+      "module": "users",
+      "name": "syncUser",
+      "kind": "mutation",
+      "dot": "users",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./hooks/useSyncUser.ts:12:  const syncUser = useMutation(api.users.syncUser);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/users.ts",
+      "module": "users",
+      "name": "getCurrentUser",
+      "kind": "query",
+      "dot": "users",
+      "apiRefCount": 4,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./hooks/useCurrentUser.ts:14:    api.users.getCurrentUser,",
+        "./docs/implementation-plan/phase-6-production/README.md:597:  const user = useQuery(api.users.getCurrentUser);",
+        "./convex/lib/auth.ts:49:  const user = await ctx.runQuery(api.users.getCurrentUser, {});",
+        "./convex/lib/auth.ts:79:  const user = await ctx.runQuery(api.users.getCurrentUser, {});"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/users.ts",
+      "module": "users",
+      "name": "getById",
+      "kind": "query",
+      "dot": "users",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/users.ts",
+      "module": "users",
+      "name": "list",
+      "kind": "query",
+      "dot": "users",
+      "apiRefCount": 1,
+      "internalRefCount": 0,
+      "apiRefs": [
+        "./docs/implementation-plan/phase-4-pursuit/README.md:260:  const users = useQuery(api.users.list);"
+      ],
+      "internalRefs": []
+    },
+    {
+      "file": "convex/users.ts",
+      "module": "users",
+      "name": "updateRole",
+      "kind": "mutation",
+      "dot": "users",
+      "apiRefCount": 0,
+      "internalRefCount": 0,
+      "apiRefs": [],
+      "internalRefs": []
+    }
+  ],
+  "tables": {
+    "users": {
+      "hits": 4,
+      "locations": [
+        "convex/users.ts:36:    const existingUsers = await ctx.db.query(\"users\").take(1);",
+        "convex/users.ts:40:    return await ctx.db.insert(\"users\", {",
+        "convex/users.ts:74:  args: { userId: v.id(\"users\") },",
+        "convex/users.ts:113:    userId: v.id(\"users\"),"
+      ]
+    },
+    "opportunities": {
+      "hits": 16,
+      "locations": [
+        "convex/eligibilityRules.ts:159:  args: { opportunityId: v.id(\"opportunities\") },",
+        "convex/eligibilityRules.ts:394:  args: { opportunityId: v.id(\"opportunities\") },",
+        "convex/eligibilityRules.ts:466:  args: { opportunityId: v.id(\"opportunities\") },",
+        "convex/eligibilityRules.ts:536:    const opportunities = await ctx.db.query(\"opportunities\").take(limit * 2);",
+        "convex/opportunities.ts:11:    cursor: v.optional(v.id(\"opportunities\")),",
+        "convex/opportunities.ts:16:    let q = ctx.db.query(\"opportunities\").order(\"desc\");",
+        "convex/opportunities.ts:48:  args: { id: v.id(\"opportunities\") },",
+        "convex/opportunities.ts:111:    const allOpportunities = await ctx.db.query(\"opportunities\").take(sampleSize);",
+        "convex/opportunities.ts:244:    const id = await ctx.db.insert(\"opportunities\", {",
+        "convex/opportunities.ts:357:        const id = await ctx.db.insert(\"opportunities\", {",
+        "convex/opportunities.ts:495:    cursor: v.optional(v.id(\"opportunities\")),",
+        "convex/opportunities.ts:700:  args: { id: v.id(\"opportunities\") },",
+        "convex/opportunities.ts:745:    id: v.id(\"opportunities\"),",
+        "convex/opportunities.ts:839:    const sample = await ctx.db.query(\"opportunities\").take(1001);",
+        "convex/schema.ts:133:    opportunityId: v.id(\"opportunities\"),",
+        "convex/schema.ts:178:    opportunityId: v.id(\"opportunities\"),"
+      ]
+    },
+    "sources": {
+      "hits": 11,
+      "locations": [
+        "convex/sources.ts:11:    return await ctx.db.query(\"sources\").order(\"desc\").take(50);",
+        "convex/sources.ts:21:    const sources = await ctx.db.query(\"sources\").take(50);",
+        "convex/sources.ts:63:    const sources = await ctx.db.query(\"sources\").take(50);",
+        "convex/sources.ts:92:    const existing = await ctx.db.query(\"sources\").take(1);",
+        "convex/sources.ts:150:      await ctx.db.insert(\"sources\", source);",
+        "convex/sources.ts:162:    id: v.id(\"sources\"),",
+        "convex/sources.ts:253:    const sources = await ctx.db.query(\"sources\").take(50);",
+        "convex/sourceQueries.ts:8:  args: { sourceId: v.id(\"sources\") },",
+        "convex/sourceQueries.ts:22:    sourceId: v.id(\"sources\"),",
+        "convex/sourceQueries.ts:101:  args: { sourceId: v.id(\"sources\") },",
+        "convex/schema.ts:120:    sourceId: v.id(\"sources\"),"
+      ]
+    },
+    "sourceQueries": {
+      "hits": 4,
+      "locations": [
+        "convex/sourceQueries.ts:44:    return await ctx.db.insert(\"sourceQueries\", args);",
+        "convex/sourceQueries.ts:53:    id: v.id(\"sourceQueries\"),",
+        "convex/sourceQueries.ts:85:  args: { id: v.id(\"sourceQueries\") },",
+        "convex/sourceQueries.ts:189:      await ctx.db.insert(\"sourceQueries\", query);"
+      ]
+    },
+    "evaluations": {
+      "hits": 5,
+      "locations": [
+        "convex/eligibilityRules.ts:443:      await ctx.db.insert(\"evaluations\", {",
+        "convex/eligibilityRules.ts:510:      await ctx.db.insert(\"evaluations\", {",
+        "convex/eligibilityRules.ts:564:      await ctx.db.insert(\"evaluations\", {",
+        "convex/eligibilityRules.ts:620:    const evaluations = await ctx.db.query(\"evaluations\").take(batchSize);",
+        "convex/opportunities.ts:840:    const evaluationSample = await ctx.db.query(\"evaluations\").take(1001);"
+      ]
+    },
+    "pursuits": {
+      "hits": 4,
+      "locations": [
+        "convex/schema.ts:211:    pursuitId: v.id(\"pursuits\"),",
+        "convex/schema.ts:220:    pursuitId: v.id(\"pursuits\"),",
+        "convex/schema.ts:229:    pursuitId: v.id(\"pursuits\"),",
+        "convex/schema.ts:237:    pursuitId: v.id(\"pursuits\"),"
+      ]
+    },
+    "pursuitBriefs": {
+      "hits": 1,
+      "locations": [
+        "convex/schema.ts:200:    pursuitBriefId: v.optional(v.id(\"pursuitBriefs\")),"
+      ]
+    },
+    "complianceMatrices": {
+      "hits": 1,
+      "locations": [
+        "convex/schema.ts:201:    complianceMatrixId: v.optional(v.id(\"complianceMatrices\")),"
+      ]
+    },
+    "pursuitNotes": {
+      "hits": 0,
+      "locations": []
+    },
+    "pursuitActivity": {
+      "hits": 0,
+      "locations": []
+    },
+    "eligibilityRules": {
+      "hits": 8,
+      "locations": [
+        "convex/eligibilityRules.ts:96:    const rules = await ctx.db.query(\"eligibilityRules\").take(50);",
+        "convex/eligibilityRules.ts:228:    const existingRules = await ctx.db.query(\"eligibilityRules\").take(1);",
+        "convex/eligibilityRules.ts:237:      await ctx.db.insert(\"eligibilityRules\", {",
+        "convex/eligibilityRules.ts:290:      await ctx.db.insert(\"eligibilityRules\", {",
+        "convex/eligibilityRules.ts:403:    const rules = await ctx.db.query(\"eligibilityRules\").take(50);",
+        "convex/eligibilityRules.ts:475:    const rules = await ctx.db.query(\"eligibilityRules\").take(50);",
+        "convex/eligibilityRules.ts:539:    const rules = await ctx.db.query(\"eligibilityRules\").take(50);",
+        "convex/eligibilityRules.ts:649:    const storedRules = await ctx.db.query(\"eligibilityRules\").take(50);"
+      ]
+    },
+    "scoringConfig": {
+      "hits": 0,
+      "locations": []
+    },
+    "auditLogs": {
+      "hits": 0,
+      "locations": []
+    },
+    "contentBlocks": {
+      "hits": 0,
+      "locations": []
+    },
+    "caseStudies": {
+      "hits": 0,
+      "locations": []
+    },
+    "teamBios": {
+      "hits": 0,
+      "locations": []
+    },
+    "proposalTemplates": {
+      "hits": 0,
+      "locations": []
+    },
+    "ingestionLogs": {
+      "hits": 3,
+      "locations": [
+        "convex/ingestion/logs.ts:26:    return await ctx.db.insert(\"ingestionLogs\", {",
+        "convex/ingestion/logs.ts:46:    id: v.id(\"ingestionLogs\"),",
+        "convex/ingestion/logs.ts:139:      q = ctx.db.query(\"ingestionLogs\");"
+      ]
+    },
+    "statsAggregation": {
+      "hits": 3,
+      "locations": [
+        "convex/eligibilityRules.ts:32:    await ctx.db.insert(\"statsAggregation\", {",
+        "convex/stats.ts:113:      await ctx.db.insert(\"statsAggregation\", {",
+        "convex/stats.ts:144:      await ctx.db.insert(\"statsAggregation\", {"
+      ]
+    }
+  }
+}

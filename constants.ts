@@ -25,12 +25,6 @@ const checkKeywords = (text: string, keywords?: CriterionItem[]): CriterionItem[
   return keywords.filter(kwItem => kwItem.enabled && lowerText.includes(kwItem.value.toLowerCase()));
 };
 
-// Helper to get just the string values of enabled keywords
-const getEnabledKeywordValues = (items?: CriterionItem[]): string[] => {
-  if (!items) return [];
-  return items.filter(item => item.enabled).map(item => item.value);
-}
-
 export const DEFAULT_AI_CORE_PROMPT_TEMPLATE = `Analyze the following text to determine if it mentions any of these keywords or concepts.
 Text: "{{TEXT_TO_ANALYZE}}"
 Keywords: {{TARGET_KEYWORDS_LIST}}
@@ -73,10 +67,10 @@ export const NEBULA_LOGIX_CRITERIA_CONFIG: Record<EvaluationCriterionKey, Nebula
   },
   [EvaluationCriterionKey.SCOPE_FIT]: {
     key: EvaluationCriterionKey.SCOPE_FIT,
-    description: "Ideal Scopes: Website or web app redesigns with modern frontend stacks, Custom portals/dashboards for government or enterprise, Cloud migration or serverless backend development, API integration projects (REST/GraphQL), Mobile-responsive web platforms (B2B/B2C).",
+    description: "Ideal Scopes: Website or web app redesigns with modern frontend stacks, Custom portals/dashboards for government or public-sector teams, Cloud migration or serverless backend development, API integration projects (REST/GraphQL), Mobile-responsive web platforms (B2B/B2C).",
     keywords: [
       "website redesign", "web app redesign", "modern frontend", 
-      "custom portal", "dashboard", "government portal", "enterprise portal",
+      "custom portal", "dashboard", "government portal",
       "cloud migration", "serverless backend development",
       "api integration", "rest api", "graphql api",
       "mobile-responsive", "b2b platform", "b2c platform"
@@ -117,7 +111,10 @@ export const NEBULA_LOGIX_CRITERIA_CONFIG: Record<EvaluationCriterionKey, Nebula
     evaluator: (rfp: RFP, criterion: NebulaLogixCriterion): CriterionEvaluationResult => {
       const textToSearch = `${rfp.title} ${rfp.summary} ${rfp.location || ''}`; 
       const foundItems = checkKeywords(textToSearch, criterion.keywords); // checkKeywords respects .enabled
-      const isUSBased = rfp.location?.toLowerCase().includes('usa') || rfp.location?.toLowerCase().includes('u.s.');
+      const isUSBased = !!rfp.location && (
+        rfp.location.toLowerCase().includes('usa') ||
+        rfp.location.toLowerCase().includes('u.s.')
+      );
       
       // Check if there are any enabled keywords for this criterion
       const hasEnabledKeywords = criterion.keywords?.some(kw => kw.enabled) ?? false;

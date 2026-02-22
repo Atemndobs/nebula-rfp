@@ -119,6 +119,24 @@ export const fetchOpportunities = internalAction({
     descriptionsFailed?: number;
     errors?: number;
   }> => {
+    const sourceRecord = await ctx.runQuery(internal.sources.getByNameInternal, {
+      name: "sam.gov",
+    });
+
+    if (sourceRecord && !sourceRecord.enabled) {
+      return {
+        success: true,
+        totalRecords: 0,
+        fetched: 0,
+        new: 0,
+        updated: 0,
+        evaluated: 0,
+        descriptionsFetched: 0,
+        descriptionsFailed: 0,
+        errors: 0,
+      };
+    }
+
     const apiKey = process.env.SAM_GOV_API_KEY;
 
     if (!apiKey) {
@@ -145,7 +163,6 @@ export const fetchOpportunities = internalAction({
     }
 
     // Check daily quota before making API request
-    const sourceRecord = await ctx.runQuery(internal.sources.getByNameInternal, { name: "sam.gov" });
     if (sourceRecord && sourceRecord.rateLimitPerDay) {
       const requestsRemaining: number = sourceRecord.rateLimitPerDay - sourceRecord.fetchedToday;
       console.log(`SAM.gov Daily Quota: ${sourceRecord.fetchedToday}/${sourceRecord.rateLimitPerDay} requests used (${requestsRemaining} remaining)`);

@@ -2,7 +2,6 @@
 
 import { RfpDetail, RfpFitAnalysis, EvaluationCriterionKey, NebulaLogixCriterion, AiSettings, EvaluationResult, AiProvider, CriterionItem } from '../types';
 import { generateRfpFitAnalysisWithGemini } from './geminiService';
-import { parseDeadlineFromTitleString } from './rfpDataService'; // For deadline checking if needed
 
 // Helper to check if a deadline is sufficient (e.g., >= 5 days out)
 const MIN_DEADLINE_DAYS_OUT = 5;

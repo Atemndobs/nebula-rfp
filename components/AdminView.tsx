@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AdminViewProps, EvaluationCriterionKey, NebulaLogixCriterion, CriterionItem, AiProvider, ProviderConfig, AiSettings } from '../types';
+import { AdminViewProps, EvaluationCriterionKey, NebulaLogixCriterion, CriterionItem, AiProvider, ProviderConfig } from '../types';
 import { GEMINI_ENV_API_KEY_ERROR_MESSAGE, DEFAULT_AI_CORE_PROMPT_TEMPLATE, DEFAULT_SYSTEM_INSTRUCTIONS, NEBULA_LOGIX_CRITERIA_CONFIG, MIN_AUTO_REFRESH_INTERVAL_HOURS, AVAILABLE_AI_PROVIDERS_CONFIG } from '../constants';
 import LoadingSpinner from './LoadingSpinner';
 import { fetchOllamaModels } from '../services/ollamaService';
 import { fetchLmStudioModels } from '../services/lmStudioService';
-import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, CsvUpload, SamGovManager, DatabaseSettings } from './admin';
+import { SourcesAdmin, IngestionLogs, EligibilityRulesAdmin, SamGovManager, DatabaseSettings } from './admin';
 import { buildDefaultAiSettings } from '../services/aiSettingsStorage';
+import { useAnalytics } from '../src/hooks/useAnalytics';
 
 // Tab types
 type AdminTab = 'data' | 'ai' | 'evaluation' | 'settings';
@@ -72,9 +73,9 @@ const ChevronUpIcon = () => (
 );
 
 const SparklesIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L1.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 12L17 13.75M17 8.25L18.25 12M12 17l1.75-1M8.25 17L12 17M12 18.25L10.25 20M13.75 20L12 18.25M12 5.25L10.25 4M13.75 4L12 5.25" />
-    </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-1.5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L1.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 12L17 13.75M17 8.25L18.25 12M12 17l1.75-1M8.25 17L12 17M12 18.25L10.25 20M13.75 20L12 18.25M12 5.25L10.25 4M13.75 4L12 5.25" />
+  </svg>
 );
 
 
@@ -91,12 +92,13 @@ const AdminView: React.FC<AdminViewProps> = ({
   onUpdateAutoRefreshInterval,
   isGeminiConfiguredViaEnv,
 }) => {
+  const { track, events } = useAnalytics();
   const [activeTab, setActiveTab] = useState<AdminTab>('data');
   const allCriterionKeys = Object.keys(criteriaConfig) as EvaluationCriterionKey[];
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
 
   const [editableCorePrompt, setEditableCorePrompt] = useState(aiSettings.corePromptTemplate);
-  const [editableSystemInstructions, setEditableSystemInstructions] = useState<Partial<Record<EvaluationCriterionKey, string>>>({...aiSettings.systemInstructions});
+  const [editableSystemInstructions, setEditableSystemInstructions] = useState<Partial<Record<EvaluationCriterionKey, string>>>({ ...aiSettings.systemInstructions });
   const [newCriterionItems, setNewCriterionItems] = useState<Partial<Record<EvaluationCriterionKey, string>>>({});
   const [localRefreshInterval, setLocalRefreshInterval] = useState<string>(String(autoRefreshIntervalHours));
 
@@ -118,7 +120,7 @@ const AdminView: React.FC<AdminViewProps> = ({
   }, [aiSettings.corePromptTemplate]);
 
   useEffect(() => {
-    setEditableSystemInstructions({...aiSettings.systemInstructions});
+    setEditableSystemInstructions({ ...aiSettings.systemInstructions });
   }, [aiSettings.systemInstructions]);
 
   useEffect(() => {
@@ -129,15 +131,15 @@ const AdminView: React.FC<AdminViewProps> = ({
     const currentConfigs = JSON.parse(JSON.stringify(aiSettings.providerConfigs));
     const defaultSettings = buildDefaultAiSettings().providerConfigs;
     for (const providerKey in defaultSettings) {
-        const pKey = providerKey as AiProvider;
-        if (!currentConfigs[pKey]) {
-            currentConfigs[pKey] = defaultSettings[pKey];
-        } else {
-            currentConfigs[pKey] = {
-                ...defaultSettings[pKey],
-                ...currentConfigs[pKey],
-            };
-        }
+      const pKey = providerKey as AiProvider;
+      if (!currentConfigs[pKey]) {
+        currentConfigs[pKey] = defaultSettings[pKey];
+      } else {
+        currentConfigs[pKey] = {
+          ...defaultSettings[pKey],
+          ...currentConfigs[pKey],
+        };
+      }
     }
     setLocalProviderConfigs(currentConfigs);
   }, [aiSettings.providerConfigs]);
@@ -187,7 +189,8 @@ const AdminView: React.FC<AdminViewProps> = ({
 
   const handleSelectedProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newProvider = e.target.value as AiProvider;
-    onUpdateAiSettings(prev => ({...prev, selectedProvider: newProvider}));
+    track(events.AI_SETTINGS_CHANGED, { action: 'provider_switched', provider: newProvider });
+    onUpdateAiSettings(prev => ({ ...prev, selectedProvider: newProvider }));
   };
 
   const handleProviderConfigChange = (
@@ -208,17 +211,18 @@ const AdminView: React.FC<AdminViewProps> = ({
   };
 
   const handleSaveProviderConfig = (provider: AiProvider) => {
-      onUpdateAiSettings(prev => ({
-          ...prev,
-          providerConfigs: {
-              ...prev.providerConfigs,
-              [provider]: {
-                  ...(prev.providerConfigs[provider] || {}),
-                  ...(localProviderConfigs[provider] || {}),
-              }
-          }
-      }));
-      alert(`${AVAILABLE_AI_PROVIDERS_CONFIG[provider]?.name || provider} configuration saved locally.`);
+    track(events.AI_SETTINGS_CHANGED, { action: 'config_saved', provider, model: localProviderConfigs[provider]?.model });
+    onUpdateAiSettings(prev => ({
+      ...prev,
+      providerConfigs: {
+        ...prev.providerConfigs,
+        [provider]: {
+          ...(prev.providerConfigs[provider] || {}),
+          ...(localProviderConfigs[provider] || {}),
+        }
+      }
+    }));
+    alert(`${AVAILABLE_AI_PROVIDERS_CONFIG[provider]?.name || provider} configuration saved locally.`);
   };
 
   const handleFetchOllamaModels = async () => {
@@ -262,7 +266,7 @@ const AdminView: React.FC<AdminViewProps> = ({
       const models = await fetchLmStudioModels(lmStudioBaseUrl);
       if (models.length > 0) {
         setLmStudioModelsList(models);
-         if (models.length > 0 && !localProviderConfigs[AiProvider.LM_STUDIO]?.model) {
+        if (models.length > 0 && !localProviderConfigs[AiProvider.LM_STUDIO]?.model) {
           handleProviderConfigChange(AiProvider.LM_STUDIO, 'model', models[0]);
         }
       } else {
@@ -282,10 +286,10 @@ const AdminView: React.FC<AdminViewProps> = ({
     const provider = aiSettings.selectedProvider;
     const config = aiSettings.providerConfigs[provider];
     if (provider === AiProvider.GEMINI) {
-        return isGeminiConfiguredViaEnv;
+      return isGeminiConfiguredViaEnv;
     }
     if (provider === AiProvider.OLLAMA || provider === AiProvider.LM_STUDIO) {
-        return !!config?.baseUrl && !!config?.model;
+      return !!config?.baseUrl && !!config?.model;
     }
     return !!config?.apiKey && !!config?.model;
   }, [aiSettings.selectedProvider, aiSettings.providerConfigs, isGeminiConfiguredViaEnv]);
@@ -357,9 +361,9 @@ const AdminView: React.FC<AdminViewProps> = ({
   const noMasterCriteriaEnabled = !allCriterionKeys.some(key => criteriaConfig[key].isMasterEnabled);
 
   const systemInstructionRelevantCriteria = [
-      EvaluationCriterionKey.TECHNICAL_RELEVANCE,
-      EvaluationCriterionKey.SCOPE_FIT,
-      EvaluationCriterionKey.SKILL_SET_ALIGNMENT
+    EvaluationCriterionKey.TECHNICAL_RELEVANCE,
+    EvaluationCriterionKey.SCOPE_FIT,
+    EvaluationCriterionKey.SKILL_SET_ALIGNMENT
   ];
 
   // Render tab content
@@ -371,9 +375,6 @@ const AdminView: React.FC<AdminViewProps> = ({
             <SourcesAdmin />
             <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
               <SamGovManager />
-            </div>
-            <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
-              <CsvUpload />
             </div>
             <div className="border-t border-accents-2 dark:border-dark-accents-2 pt-8">
               <IngestionLogs />
@@ -394,200 +395,200 @@ const AdminView: React.FC<AdminViewProps> = ({
               </p>
 
               <div className="p-4 bg-accents-1 dark:bg-dark-accents-2 border border-accents-2 dark:border-dark-accents-2 rounded-md">
-                  <div className="mb-4">
-                      <label htmlFor="aiProviderSelect" className="block text-sm font-medium text-geist-foreground dark:text-dark-geist-foreground mb-1">Select AI Provider:</label>
-                      <select
-                          id="aiProviderSelect"
-                          value={aiSettings.selectedProvider}
-                          onChange={handleSelectedProviderChange}
-                          className={selectBaseClasses + " w-full sm:w-auto"}
-                          aria-label="Select AI Provider"
-                      >
-                          {(Object.keys(AiProvider) as Array<keyof typeof AiProvider>).map(key => (
-                              <option key={AiProvider[key]} value={AiProvider[key]}>
-                                  {AVAILABLE_AI_PROVIDERS_CONFIG[AiProvider[key]]?.name || AiProvider[key]}
-                              </option>
-                          ))}
-                      </select>
-                  </div>
+                <div className="mb-4">
+                  <label htmlFor="aiProviderSelect" className="block text-sm font-medium text-geist-foreground dark:text-dark-geist-foreground mb-1">Select AI Provider:</label>
+                  <select
+                    id="aiProviderSelect"
+                    value={aiSettings.selectedProvider}
+                    onChange={handleSelectedProviderChange}
+                    className={selectBaseClasses + " w-full sm:w-auto"}
+                    aria-label="Select AI Provider"
+                  >
+                    {(Object.keys(AiProvider) as Array<keyof typeof AiProvider>).map(key => (
+                      <option key={AiProvider[key]} value={AiProvider[key]}>
+                        {AVAILABLE_AI_PROVIDERS_CONFIG[AiProvider[key]]?.name || AiProvider[key]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  {currentSelectedProviderConfig && (
-                      <div className="mb-4 p-3 border border-accents-3 dark:border-dark-accents-8/50 rounded-md bg-white dark:bg-dark-accents-1">
-                          <h4 className="text-sm font-medium text-geist-foreground dark:text-dark-geist-foreground mb-2">
-                              Configure {currentSelectedProviderConfig.name}
-                          </h4>
-                          {currentSelectedProviderConfig.requiresApiKeyInUI && (
-                              <div className="mb-3">
-                                  <label htmlFor={`${aiSettings.selectedProvider}-apiKey`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary mb-1">API Key:</label>
-                                  <input
-                                      type="password"
-                                      id={`${aiSettings.selectedProvider}-apiKey`}
-                                      placeholder={`Enter ${currentSelectedProviderConfig.name} API Key`}
-                                      value={localProviderConfigs[aiSettings.selectedProvider]?.apiKey || ''}
-                                      onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'apiKey', e.target.value)}
-                                      className={`${inputBaseClasses} w-full text-xs`}
-                                      aria-label={`${currentSelectedProviderConfig.name} API Key`}
-                                  />
-                              </div>
-                          )}
-                          {aiSettings.selectedProvider === AiProvider.GEMINI && !currentSelectedProviderConfig.requiresApiKeyInUI && (
-                              <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 border border-blue-200 dark:border-blue-700 rounded-md">
-                                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                                      <strong>Important for Gemini:</strong> The API key for Google Gemini is configured via the <code>API_KEY</code> environment variable.
-                                  </p>
-                              </div>
-                          )}
-
-                          {(currentSelectedProviderConfig?.requiresBaseUrl) && (
-                               <div className="mb-3">
-                                  <label htmlFor={`${aiSettings.selectedProvider}-baseUrl`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary mb-1">Base URL:</label>
-                                  <input
-                                      type="text"
-                                      id={`${aiSettings.selectedProvider}-baseUrl`}
-                                      placeholder={aiSettings.selectedProvider === AiProvider.OLLAMA ? "http://localhost:11434" : (aiSettings.selectedProvider === AiProvider.LM_STUDIO ? "http://localhost:1234/v1" : "Enter Base URL")}
-                                      value={localProviderConfigs[aiSettings.selectedProvider]?.baseUrl || ''}
-                                      onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'baseUrl', e.target.value)}
-                                      className={`${inputBaseClasses} w-full text-xs`}
-                                      aria-label={`${currentSelectedProviderConfig.name} Base URL`}
-                                  />
-                              </div>
-                          )}
-                          <div className="mb-3">
-                            {/* Model Input */}
-                            {aiSettings.selectedProvider === AiProvider.OLLAMA && (
-                              <>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <label htmlFor={`${AiProvider.OLLAMA}-model`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary">Model:</label>
-                                  <button
-                                    onClick={handleFetchOllamaModels}
-                                    disabled={isFetchingOllamaModels || !localProviderConfigs[AiProvider.OLLAMA]?.baseUrl}
-                                    className={`${primaryButtonClasses} text-xs px-2 py-0.5`}
-                                    title={!localProviderConfigs[AiProvider.OLLAMA]?.baseUrl ? "Configure Base URL first" : "Fetch available models from Ollama"}
-                                  >
-                                    {isFetchingOllamaModels ? <LoadingSpinner size="sm" /> : "Fetch Models"}
-                                  </button>
-                                </div>
-                                {isFetchingOllamaModels && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">Fetching...</p>}
-                                {ollamaModelsError && <p className="text-xs text-red-500 dark:text-red-400">{ollamaModelsError}</p>}
-
-                                {!isFetchingOllamaModels && ollamaModelsList.length > 0 ? (
-                                  <select
-                                    id={`${AiProvider.OLLAMA}-model`}
-                                    value={localProviderConfigs[AiProvider.OLLAMA]?.model || ''}
-                                    onChange={(e) => handleProviderConfigChange(AiProvider.OLLAMA, 'model', e.target.value)}
-                                    className={selectBaseClasses + " w-full text-xs"}
-                                    aria-label="Ollama model"
-                                  >
-                                    <option value="" disabled>Select a model</option>
-                                    {ollamaModelsList.map(modelName => (
-                                      <option key={modelName} value={modelName}>{modelName}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    id={`${AiProvider.OLLAMA}-model-fallback`}
-                                    placeholder={currentSelectedProviderConfig?.defaultModel || "Enter model name/tag"}
-                                    value={localProviderConfigs[AiProvider.OLLAMA]?.model || currentSelectedProviderConfig?.defaultModel || ""}
-                                    onChange={(e) => handleProviderConfigChange(AiProvider.OLLAMA, 'model', e.target.value)}
-                                    className={`${inputBaseClasses} w-full text-xs`}
-                                    aria-label={`${currentSelectedProviderConfig?.name || 'Ollama'} model name`}
-                                  />
-                                )}
-                              </>
-                            )}
-                            {aiSettings.selectedProvider === AiProvider.LM_STUDIO && (
-                              <>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <label htmlFor={`${AiProvider.LM_STUDIO}-model`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary">Model:</label>
-                                  <button
-                                    onClick={handleFetchLmStudioModels}
-                                    disabled={isFetchingLmStudioModels || !localProviderConfigs[AiProvider.LM_STUDIO]?.baseUrl}
-                                    className={`${primaryButtonClasses} text-xs px-2 py-0.5`}
-                                    title={!localProviderConfigs[AiProvider.LM_STUDIO]?.baseUrl ? "Configure Base URL first (incl. /v1)" : "Fetch available models from LM Studio"}
-                                  >
-                                    {isFetchingLmStudioModels ? <LoadingSpinner size="sm" /> : "Fetch Models"}
-                                  </button>
-                                </div>
-                                {isFetchingLmStudioModels && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">Fetching...</p>}
-                                {lmStudioModelsError && <p className="text-xs text-red-500 dark:text-red-400">{lmStudioModelsError}</p>}
-
-                                {!isFetchingLmStudioModels && lmStudioModelsList.length > 0 ? (
-                                  <select
-                                    id={`${AiProvider.LM_STUDIO}-model`}
-                                    value={localProviderConfigs[AiProvider.LM_STUDIO]?.model || ''}
-                                    onChange={(e) => handleProviderConfigChange(AiProvider.LM_STUDIO, 'model', e.target.value)}
-                                    className={selectBaseClasses + " w-full text-xs"}
-                                    aria-label="LM Studio model"
-                                  >
-                                    <option value="" disabled>Select a loaded model</option>
-                                    {lmStudioModelsList.map(modelName => (
-                                      <option key={modelName} value={modelName}>{modelName}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    id={`${AiProvider.LM_STUDIO}-model-fallback`}
-                                    placeholder={currentSelectedProviderConfig?.defaultModel || "Manually enter model identifier"}
-                                    value={localProviderConfigs[AiProvider.LM_STUDIO]?.model || currentSelectedProviderConfig?.defaultModel || ""}
-                                    onChange={(e) => handleProviderConfigChange(AiProvider.LM_STUDIO, 'model', e.target.value)}
-                                    className={`${inputBaseClasses} w-full text-xs`}
-                                    aria-label={`${currentSelectedProviderConfig?.name || 'LM Studio'} model name`}
-                                  />
-                                )}
-                              </>
-                            )}
-                            {aiSettings.selectedProvider !== AiProvider.OLLAMA && aiSettings.selectedProvider !== AiProvider.LM_STUDIO && (
-                              <>
-                                <label htmlFor={`${aiSettings.selectedProvider}-model`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary mb-1">Model:</label>
-                                {currentSelectedProviderConfig?.models.length > 1 ? (
-                                     <select
-                                        id={`${aiSettings.selectedProvider}-model`}
-                                        value={localProviderConfigs[aiSettings.selectedProvider]?.model || currentSelectedProviderConfig.defaultModel}
-                                        onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'model', e.target.value)}
-                                        className={selectBaseClasses + " w-full text-xs"}
-                                        aria-label={`${currentSelectedProviderConfig.name} model selection`}
-                                    >
-                                        {currentSelectedProviderConfig.models.map(modelName => (
-                                            <option key={modelName} value={modelName}>{modelName}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                     <input
-                                        type="text"
-                                        id={`${aiSettings.selectedProvider}-model`}
-                                        placeholder={currentSelectedProviderConfig?.defaultModel || "Enter model name/tag"}
-                                        value={localProviderConfigs[aiSettings.selectedProvider]?.model || currentSelectedProviderConfig?.defaultModel || ""}
-                                        onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'model', e.target.value)}
-                                        className={`${inputBaseClasses} w-full text-xs`}
-                                        aria-label={`${currentSelectedProviderConfig?.name} model name`}
-                                        disabled={currentSelectedProviderConfig?.models.length === 1 && aiSettings.selectedProvider === AiProvider.GEMINI}
-                                    />
-                                )}
-                              </>
-                            )}
-                          </div>
-
-                          <button onClick={() => handleSaveProviderConfig(aiSettings.selectedProvider)} className={`${primaryButtonClasses} text-xs px-2.5 py-1`}>Save {currentSelectedProviderConfig.name} Config</button>
+                {currentSelectedProviderConfig && (
+                  <div className="mb-4 p-3 border border-accents-3 dark:border-dark-accents-8/50 rounded-md bg-white dark:bg-dark-accents-1">
+                    <h4 className="text-sm font-medium text-geist-foreground dark:text-dark-geist-foreground mb-2">
+                      Configure {currentSelectedProviderConfig.name}
+                    </h4>
+                    {currentSelectedProviderConfig.requiresApiKeyInUI && (
+                      <div className="mb-3">
+                        <label htmlFor={`${aiSettings.selectedProvider}-apiKey`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary mb-1">API Key:</label>
+                        <input
+                          type="password"
+                          id={`${aiSettings.selectedProvider}-apiKey`}
+                          placeholder={`Enter ${currentSelectedProviderConfig.name} API Key`}
+                          value={localProviderConfigs[aiSettings.selectedProvider]?.apiKey || ''}
+                          onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'apiKey', e.target.value)}
+                          className={`${inputBaseClasses} w-full text-xs`}
+                          aria-label={`${currentSelectedProviderConfig.name} API Key`}
+                        />
                       </div>
-                  )}
+                    )}
+                    {aiSettings.selectedProvider === AiProvider.GEMINI && !currentSelectedProviderConfig.requiresApiKeyInUI && (
+                      <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900 dark:bg-opacity-20 border border-blue-200 dark:border-blue-700 rounded-md">
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          <strong>Important for Gemini:</strong> The API key for Google Gemini is configured via the <code>API_KEY</code> environment variable.
+                        </p>
+                      </div>
+                    )}
 
-                  <div className="flex items-center space-x-3">
-                      <button
-                          onClick={() => onUpdateAiSettings(prev => ({...prev, useAiForEvaluation: !prev.useAiForEvaluation}))}
-                          disabled={!isCurrentProviderConfigured}
-                          className={aiSettings.useAiForEvaluation && isCurrentProviderConfigured ? activeToggleButtonClasses : inactiveToggleButtonClasses}
-                          aria-pressed={aiSettings.useAiForEvaluation && isCurrentProviderConfigured}
-                          title={!isCurrentProviderConfigured ? `${aiSettings.selectedProvider} not configured` : (aiSettings.useAiForEvaluation ? `Disable ${aiSettings.selectedProvider} AI Analysis` : `Enable ${aiSettings.selectedProvider} AI Analysis`)}
-                      >
-                          <AiIconSvg active={aiSettings.useAiForEvaluation && isCurrentProviderConfigured} className="w-4 h-4" />
-                          <span className="ml-1.5">{aiSettings.selectedProvider} AI Analysis</span>
-                      </button>
-                      <span className={`text-xs font-medium ${aiSettings.useAiForEvaluation && isCurrentProviderConfigured ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {isCurrentProviderConfigured ? (aiSettings.useAiForEvaluation ? 'ENABLED' : 'DISABLED') : 'NOT AVAILABLE'}
-                      </span>
+                    {(currentSelectedProviderConfig?.requiresBaseUrl) && (
+                      <div className="mb-3">
+                        <label htmlFor={`${aiSettings.selectedProvider}-baseUrl`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary mb-1">Base URL:</label>
+                        <input
+                          type="text"
+                          id={`${aiSettings.selectedProvider}-baseUrl`}
+                          placeholder={aiSettings.selectedProvider === AiProvider.OLLAMA ? "http://localhost:11434" : (aiSettings.selectedProvider === AiProvider.LM_STUDIO ? "http://localhost:1234/v1" : "Enter Base URL")}
+                          value={localProviderConfigs[aiSettings.selectedProvider]?.baseUrl || ''}
+                          onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'baseUrl', e.target.value)}
+                          className={`${inputBaseClasses} w-full text-xs`}
+                          aria-label={`${currentSelectedProviderConfig.name} Base URL`}
+                        />
+                      </div>
+                    )}
+                    <div className="mb-3">
+                      {/* Model Input */}
+                      {aiSettings.selectedProvider === AiProvider.OLLAMA && (
+                        <>
+                          <div className="flex items-center gap-2 mb-1">
+                            <label htmlFor={`${AiProvider.OLLAMA}-model`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary">Model:</label>
+                            <button
+                              onClick={handleFetchOllamaModels}
+                              disabled={isFetchingOllamaModels || !localProviderConfigs[AiProvider.OLLAMA]?.baseUrl}
+                              className={`${primaryButtonClasses} text-xs px-2 py-0.5`}
+                              title={!localProviderConfigs[AiProvider.OLLAMA]?.baseUrl ? "Configure Base URL first" : "Fetch available models from Ollama"}
+                            >
+                              {isFetchingOllamaModels ? <LoadingSpinner size="sm" /> : "Fetch Models"}
+                            </button>
+                          </div>
+                          {isFetchingOllamaModels && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">Fetching...</p>}
+                          {ollamaModelsError && <p className="text-xs text-red-500 dark:text-red-400">{ollamaModelsError}</p>}
+
+                          {!isFetchingOllamaModels && ollamaModelsList.length > 0 ? (
+                            <select
+                              id={`${AiProvider.OLLAMA}-model`}
+                              value={localProviderConfigs[AiProvider.OLLAMA]?.model || ''}
+                              onChange={(e) => handleProviderConfigChange(AiProvider.OLLAMA, 'model', e.target.value)}
+                              className={selectBaseClasses + " w-full text-xs"}
+                              aria-label="Ollama model"
+                            >
+                              <option value="" disabled>Select a model</option>
+                              {ollamaModelsList.map(modelName => (
+                                <option key={modelName} value={modelName}>{modelName}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              id={`${AiProvider.OLLAMA}-model-fallback`}
+                              placeholder={currentSelectedProviderConfig?.defaultModel || "Enter model name/tag"}
+                              value={localProviderConfigs[AiProvider.OLLAMA]?.model || currentSelectedProviderConfig?.defaultModel || ""}
+                              onChange={(e) => handleProviderConfigChange(AiProvider.OLLAMA, 'model', e.target.value)}
+                              className={`${inputBaseClasses} w-full text-xs`}
+                              aria-label={`${currentSelectedProviderConfig?.name || 'Ollama'} model name`}
+                            />
+                          )}
+                        </>
+                      )}
+                      {aiSettings.selectedProvider === AiProvider.LM_STUDIO && (
+                        <>
+                          <div className="flex items-center gap-2 mb-1">
+                            <label htmlFor={`${AiProvider.LM_STUDIO}-model`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary">Model:</label>
+                            <button
+                              onClick={handleFetchLmStudioModels}
+                              disabled={isFetchingLmStudioModels || !localProviderConfigs[AiProvider.LM_STUDIO]?.baseUrl}
+                              className={`${primaryButtonClasses} text-xs px-2 py-0.5`}
+                              title={!localProviderConfigs[AiProvider.LM_STUDIO]?.baseUrl ? "Configure Base URL first (incl. /v1)" : "Fetch available models from LM Studio"}
+                            >
+                              {isFetchingLmStudioModels ? <LoadingSpinner size="sm" /> : "Fetch Models"}
+                            </button>
+                          </div>
+                          {isFetchingLmStudioModels && <p className="text-xs text-geist-secondary dark:text-dark-geist-secondary">Fetching...</p>}
+                          {lmStudioModelsError && <p className="text-xs text-red-500 dark:text-red-400">{lmStudioModelsError}</p>}
+
+                          {!isFetchingLmStudioModels && lmStudioModelsList.length > 0 ? (
+                            <select
+                              id={`${AiProvider.LM_STUDIO}-model`}
+                              value={localProviderConfigs[AiProvider.LM_STUDIO]?.model || ''}
+                              onChange={(e) => handleProviderConfigChange(AiProvider.LM_STUDIO, 'model', e.target.value)}
+                              className={selectBaseClasses + " w-full text-xs"}
+                              aria-label="LM Studio model"
+                            >
+                              <option value="" disabled>Select a loaded model</option>
+                              {lmStudioModelsList.map(modelName => (
+                                <option key={modelName} value={modelName}>{modelName}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              id={`${AiProvider.LM_STUDIO}-model-fallback`}
+                              placeholder={currentSelectedProviderConfig?.defaultModel || "Manually enter model identifier"}
+                              value={localProviderConfigs[AiProvider.LM_STUDIO]?.model || currentSelectedProviderConfig?.defaultModel || ""}
+                              onChange={(e) => handleProviderConfigChange(AiProvider.LM_STUDIO, 'model', e.target.value)}
+                              className={`${inputBaseClasses} w-full text-xs`}
+                              aria-label={`${currentSelectedProviderConfig?.name || 'LM Studio'} model name`}
+                            />
+                          )}
+                        </>
+                      )}
+                      {aiSettings.selectedProvider !== AiProvider.OLLAMA && aiSettings.selectedProvider !== AiProvider.LM_STUDIO && (
+                        <>
+                          <label htmlFor={`${aiSettings.selectedProvider}-model`} className="block text-xs font-medium text-geist-secondary dark:text-dark-geist-secondary mb-1">Model:</label>
+                          {currentSelectedProviderConfig?.models.length > 1 ? (
+                            <select
+                              id={`${aiSettings.selectedProvider}-model`}
+                              value={localProviderConfigs[aiSettings.selectedProvider]?.model || currentSelectedProviderConfig.defaultModel}
+                              onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'model', e.target.value)}
+                              className={selectBaseClasses + " w-full text-xs"}
+                              aria-label={`${currentSelectedProviderConfig.name} model selection`}
+                            >
+                              {currentSelectedProviderConfig.models.map(modelName => (
+                                <option key={modelName} value={modelName}>{modelName}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              id={`${aiSettings.selectedProvider}-model`}
+                              placeholder={currentSelectedProviderConfig?.defaultModel || "Enter model name/tag"}
+                              value={localProviderConfigs[aiSettings.selectedProvider]?.model || currentSelectedProviderConfig?.defaultModel || ""}
+                              onChange={(e) => handleProviderConfigChange(aiSettings.selectedProvider, 'model', e.target.value)}
+                              className={`${inputBaseClasses} w-full text-xs`}
+                              aria-label={`${currentSelectedProviderConfig?.name} model name`}
+                              disabled={currentSelectedProviderConfig?.models.length === 1 && aiSettings.selectedProvider === AiProvider.GEMINI}
+                            />
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <button onClick={() => handleSaveProviderConfig(aiSettings.selectedProvider)} className={`${primaryButtonClasses} text-xs px-2.5 py-1`}>Save {currentSelectedProviderConfig.name} Config</button>
                   </div>
+                )}
+
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => onUpdateAiSettings(prev => ({ ...prev, useAiForEvaluation: !prev.useAiForEvaluation }))}
+                    disabled={!isCurrentProviderConfigured}
+                    className={aiSettings.useAiForEvaluation && isCurrentProviderConfigured ? activeToggleButtonClasses : inactiveToggleButtonClasses}
+                    aria-pressed={aiSettings.useAiForEvaluation && isCurrentProviderConfigured}
+                    title={!isCurrentProviderConfigured ? `${aiSettings.selectedProvider} not configured` : (aiSettings.useAiForEvaluation ? `Disable ${aiSettings.selectedProvider} AI Analysis` : `Enable ${aiSettings.selectedProvider} AI Analysis`)}
+                  >
+                    <AiIconSvg active={aiSettings.useAiForEvaluation && isCurrentProviderConfigured} className="w-4 h-4" />
+                    <span className="ml-1.5">{aiSettings.selectedProvider} AI Analysis</span>
+                  </button>
+                  <span className={`text-xs font-medium ${aiSettings.useAiForEvaluation && isCurrentProviderConfigured ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {isCurrentProviderConfigured ? (aiSettings.useAiForEvaluation ? 'ENABLED' : 'DISABLED') : 'NOT AVAILABLE'}
+                  </span>
+                </div>
               </div>
             </section>
 
@@ -609,9 +610,9 @@ const AdminView: React.FC<AdminViewProps> = ({
               <div className="mt-3 flex flex-wrap gap-2">
                 <button onClick={() => onUpdateAiSettings({ corePromptTemplate: editableCorePrompt })} className={primaryButtonClasses}>Save Core Prompt</button>
                 <button onClick={() => {
-                    onUpdateAiSettings({ corePromptTemplate: DEFAULT_AI_CORE_PROMPT_TEMPLATE });
-                    setEditableCorePrompt(DEFAULT_AI_CORE_PROMPT_TEMPLATE);
-                  }} className={inactiveToggleButtonClasses}>Reset to Default</button>
+                  onUpdateAiSettings({ corePromptTemplate: DEFAULT_AI_CORE_PROMPT_TEMPLATE });
+                  setEditableCorePrompt(DEFAULT_AI_CORE_PROMPT_TEMPLATE);
+                }} className={inactiveToggleButtonClasses}>Reset to Default</button>
                 <button
                   onClick={onAutoImproveCorePrompt}
                   className={`${inactiveToggleButtonClasses} ${isImprovingPrompt ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -641,18 +642,18 @@ const AdminView: React.FC<AdminViewProps> = ({
                       <textarea
                         id={`sys-instr-${criterionKey}`}
                         value={currentInstruction}
-                        onChange={(e) => setEditableSystemInstructions(prev => ({...prev, [criterionKey]: e.target.value}))}
+                        onChange={(e) => setEditableSystemInstructions(prev => ({ ...prev, [criterionKey]: e.target.value }))}
                         rows={2}
                         placeholder="Optional: e.g., You are an expert in..."
                         className="w-full p-2 border border-accents-2 dark:border-dark-accents-2 rounded-md shadow-vercel-sm text-xs bg-geist-background dark:bg-dark-accents-1 text-geist-foreground dark:text-dark-geist-foreground placeholder-accents-4 dark:placeholder-accents-5 focus:ring-2 focus:ring-vercel-blue focus:border-vercel-blue"
                         aria-label={`System instruction for ${criterionKey}`}
                       />
                       <div className="mt-2 flex flex-wrap gap-2">
-                        <button onClick={() => onUpdateAiSettings(prev => ({...prev, systemInstructions: {...prev.systemInstructions, [criterionKey]: editableSystemInstructions[criterionKey] || ''}}))} className={primaryButtonClasses}>Save</button>
+                        <button onClick={() => onUpdateAiSettings(prev => ({ ...prev, systemInstructions: { ...prev.systemInstructions, [criterionKey]: editableSystemInstructions[criterionKey] || '' } }))} className={primaryButtonClasses}>Save</button>
                         <button onClick={() => {
-                            const defaultInstruction = NEBULA_LOGIX_CRITERIA_CONFIG[criterionKey]?.geminiSystemInstruction || DEFAULT_SYSTEM_INSTRUCTIONS[criterionKey] || '';
-                            onUpdateAiSettings(prev => ({...prev, systemInstructions: {...prev.systemInstructions, [criterionKey]: defaultInstruction }}));
-                            setEditableSystemInstructions(prev => ({...prev, [criterionKey]: defaultInstruction }));
+                          const defaultInstruction = NEBULA_LOGIX_CRITERIA_CONFIG[criterionKey]?.geminiSystemInstruction || DEFAULT_SYSTEM_INSTRUCTIONS[criterionKey] || '';
+                          onUpdateAiSettings(prev => ({ ...prev, systemInstructions: { ...prev.systemInstructions, [criterionKey]: defaultInstruction } }));
+                          setEditableSystemInstructions(prev => ({ ...prev, [criterionKey]: defaultInstruction }));
                         }} className={inactiveToggleButtonClasses}>Reset</button>
                       </div>
                     </div>
@@ -714,8 +715,8 @@ const AdminView: React.FC<AdminViewProps> = ({
                   );
                 })}
               </div>
-               {noMasterCriteriaEnabled && (
-                  <p className="mt-3 text-xs text-red-600 dark:text-red-400">Warning: No master criteria are enabled. All RFPs will score 0.</p>
+              {noMasterCriteriaEnabled && (
+                <p className="mt-3 text-xs text-red-600 dark:text-red-400">Warning: No master criteria are enabled. All RFPs will score 0.</p>
               )}
             </section>
           </div>
@@ -762,19 +763,19 @@ const AdminView: React.FC<AdminViewProps> = ({
                 AI Provider Status
               </h3>
               <div className="p-4 bg-accents-1 dark:bg-dark-accents-2 border border-accents-2 dark:border-dark-accents-2 rounded-md text-sm text-geist-secondary dark:text-dark-geist-secondary">
-                  {aiSettings.selectedProvider === AiProvider.GEMINI && (
-                      <>
-                          <p className="font-semibold mb-1">Google Gemini:</p>
-                          <p>API Key status: <strong className={isGeminiConfiguredViaEnv ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{isGeminiConfiguredViaEnv ? "CONFIGURED (via env)" : GEMINI_ENV_API_KEY_ERROR_MESSAGE}</strong></p>
-                      </>
-                  )}
-                  {aiSettings.selectedProvider !== AiProvider.GEMINI && (
-                      <>
-                          <p className="font-semibold mb-1">{AVAILABLE_AI_PROVIDERS_CONFIG[aiSettings.selectedProvider]?.name || aiSettings.selectedProvider}:</p>
-                          <p>Status: <strong className={isCurrentProviderConfigured ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{isCurrentProviderConfigured ? "CONFIGURED" : "NOT CONFIGURED"}</strong></p>
-                      </>
-                  )}
-                  <p className="mt-2 text-xs italic">Go to the AI Settings tab to configure providers.</p>
+                {aiSettings.selectedProvider === AiProvider.GEMINI && (
+                  <>
+                    <p className="font-semibold mb-1">Google Gemini:</p>
+                    <p>API Key status: <strong className={isGeminiConfiguredViaEnv ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{isGeminiConfiguredViaEnv ? "CONFIGURED (via env)" : GEMINI_ENV_API_KEY_ERROR_MESSAGE}</strong></p>
+                  </>
+                )}
+                {aiSettings.selectedProvider !== AiProvider.GEMINI && (
+                  <>
+                    <p className="font-semibold mb-1">{AVAILABLE_AI_PROVIDERS_CONFIG[aiSettings.selectedProvider]?.name || aiSettings.selectedProvider}:</p>
+                    <p>Status: <strong className={isCurrentProviderConfigured ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{isCurrentProviderConfigured ? "CONFIGURED" : "NOT CONFIGURED"}</strong></p>
+                  </>
+                )}
+                <p className="mt-2 text-xs italic">Go to the AI Settings tab to configure providers.</p>
               </div>
             </section>
 
@@ -806,11 +807,10 @@ const AdminView: React.FC<AdminViewProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
+              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id
                   ? 'border-vercel-blue text-vercel-blue'
                   : 'border-transparent text-geist-secondary dark:text-dark-geist-secondary hover:text-geist-foreground dark:hover:text-dark-geist-foreground hover:border-accents-3 dark:hover:border-accents-5'
-              }`}
+                }`}
               aria-selected={activeTab === tab.id}
               role="tab"
             >

@@ -41,6 +41,294 @@ const RFP_SOURCE_URLS: Record<RfpSourceCategory, string[]> = {
   ],
 };
 
+const GENERIC_SOURCE_CATEGORIES = new Set([
+  "web-design-and-development-rfp",
+  "website-design-and-development-rfp",
+  "web-site-design-and-development-rfp",
+  "mobile-application-development-rfp",
+]);
+
+const TARGET_ID_PREFIXES = new Set([
+  "SW",
+  "WD",
+  "ITES",
+  "NET",
+  "TELCOM",
+  "DRA",
+  "CSE",
+  "AI",
+  "GIS",
+]);
+
+const HARD_EXCLUSION_PHRASES = [
+  "toilet paper",
+  "paper towel",
+  "janitorial",
+  "custodial",
+  "construction",
+  "hvac",
+  "plumbing",
+  "roofing",
+  "bond underwriter",
+  "bookstore operations",
+  "vending",
+  "demolition",
+  "asbestos",
+  "enterprise based software",
+  "enterprise resource planning",
+  "erp implementation",
+  "info only, rfp not included",
+];
+
+const TARGET_SIGNAL_PHRASES = [
+  "software",
+  "web",
+  "website",
+  "portal",
+  "dashboard",
+  "api",
+  "cloud",
+  "data platform",
+  "data analytics",
+  "cyber",
+  "ai",
+  "artificial intelligence",
+  "machine learning",
+  "application development",
+  "systems integration",
+  "saas",
+];
+
+const CATEGORY_BY_PREFIX: Record<string, string> = {
+  SW: "software-development",
+  WD: "web-design-and-development",
+  ITES: "it-services",
+  NET: "networking",
+  TELCOM: "telecommunications",
+  DRA: "data-and-research",
+  CSE: "security-services",
+  AI: "ai-solutions",
+  GIS: "gis-services",
+};
+
+const DETAIL_VERIFY_BATCH_MAX = 40;
+const DETAIL_VERIFY_CONCURRENCY = 5;
+const DETAIL_REQUEST_TIMEOUT_MS = 6000;
+
+const DETAIL_ALLOW_PHRASES = [
+  "software",
+  "web",
+  "website",
+  "application",
+  "cloud",
+  "portal",
+  "dashboard",
+  "api",
+  "it services",
+  "systems integration",
+  "artificial intelligence",
+  "machine learning",
+  "data platform",
+  "analytics",
+  "cyber",
+  "digital",
+  "saas",
+  "licensing",
+];
+
+const DETAIL_BLOCK_PHRASES = [
+  "subsistence",
+  "training supplies",
+  "professional consulting",
+  "management support services",
+  "toilet paper",
+  "paper towels",
+  "janitorial",
+  "custodial",
+  "construction",
+  "hvac",
+  "plumbing",
+  "roofing",
+  "bond underwriter",
+  "bookstore operations",
+  "vending",
+  "asbestos",
+  "demolition",
+  "enterprise resource planning",
+  "enterprise based software",
+  "info only, rfp not included",
+];
+
+interface DetailForFiltering {
+  id?: string;
+  category?: string;
+  title?: string;
+  description?: string;
+  scope_of_service?: string;
+  work_performance?: string;
+}
+
+const hasAnyPhrase = (text: string, phrases: string[]): boolean => {
+  return phrases.some((phrase) => text.includes(phrase));
+};
+
+const isDetailTechAligned = (detail: DetailForFiltering, fallbackRfp: ApiRfp): boolean => {
+  const detailText = [
+    detail.category || "",
+    detail.title || "",
+    detail.description || "",
+    detail.scope_of_service || "",
+    detail.work_performance || "",
+  ].join(" ").toLowerCase();
+
+  if (hasAnyPhrase(detailText, DETAIL_BLOCK_PHRASES)) {
+    return false;
+  }
+
+  if (hasAnyPhrase(detailText, DETAIL_ALLOW_PHRASES)) {
+    return true;
+  }
+
+  // Fallback to prefix heuristic only if detail text had no strong signals.
+  const prefix = getIdPrefix(fallbackRfp);
+  return TARGET_ID_PREFIXES.has(prefix);
+};
+
+const fetchDetailForFiltering = async (url: string): Promise<DetailForFiltering | null> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DETAIL_REQUEST_TIMEOUT_MS);
+
+  try {
+    const detailApiUrl = `${FASTAPI_DETAIL_BASE_URL}?url=${encodeURIComponent(url)}`;
+    const response = await fetch(detailApiUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as DetailForFiltering;
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    return payload;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const verifyCandidatesWithDetails = async (candidates: ApiRfp[]): Promise<ApiRfp[]> => {
+  if (candidates.length === 0) return [];
+
+  const keepByIndex = new Array<boolean>(candidates.length).fill(false);
+  let cursor = 0;
+
+  const worker = async () => {
+    while (cursor < candidates.length) {
+      const index = cursor++;
+      const candidate = candidates[index];
+      if (!candidate?.url) continue;
+
+      const detail = await fetchDetailForFiltering(candidate.url);
+      if (detail && isDetailTechAligned(detail, candidate)) {
+        keepByIndex[index] = true;
+      }
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(DETAIL_VERIFY_CONCURRENCY, candidates.length) }, () => worker());
+  await Promise.all(workers);
+
+  return candidates.filter((_, index) => keepByIndex[index]);
+};
+
+const getIdPrefix = (rfp: ApiRfp): string => {
+  const fromId = (rfp.id || "").split("-")[0]?.toUpperCase();
+  if (fromId) return fromId;
+
+  const fromTitle = (rfp.title || "").match(/^([A-Za-z]+)-\d+/)?.[1]?.toUpperCase();
+  return fromTitle || "";
+};
+
+const isLikelyTargetRfp = (rfp: ApiRfp): boolean => {
+  const text = `${rfp.id || ""} ${rfp.title || ""} ${rfp.description || ""}`.toLowerCase();
+
+  if (HARD_EXCLUSION_PHRASES.some((phrase) => text.includes(phrase))) {
+    return false;
+  }
+
+  const prefix = getIdPrefix(rfp);
+  if (TARGET_ID_PREFIXES.has(prefix)) {
+    return true;
+  }
+
+  return TARGET_SIGNAL_PHRASES.some((phrase) => text.includes(phrase));
+};
+
+export const normalizeApiCategory = (rfp: ApiRfp): string => {
+  const rawCategory = (rfp.category || "").toLowerCase().trim();
+  if (rawCategory && !GENERIC_SOURCE_CATEGORIES.has(rawCategory)) {
+    return rawCategory;
+  }
+
+  const prefix = getIdPrefix(rfp);
+  return CATEGORY_BY_PREFIX[prefix] || rawCategory || "not-specified";
+};
+
+const getRfpMartRecencyScore = (rfp: ApiRfp): number => {
+  const fromUrl = rfp.url?.match(/\/(\d+)-/);
+  if (fromUrl && fromUrl[1]) {
+    const numeric = Number(fromUrl[1]);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+
+  const fromId = rfp.id?.match(/(\d+)/);
+  if (fromId && fromId[1]) {
+    const numeric = Number(fromId[1]);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+
+  return 0;
+};
+
+const dedupeAndRankRfps = (items: ApiRfp[], limit: number): ApiRfp[] => {
+  const byKey = new Map<string, ApiRfp>();
+
+  for (const item of items) {
+    const key = item.id || item.url || item.title;
+    if (!key) continue;
+
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, item);
+      continue;
+    }
+
+    const existingScore = getRfpMartRecencyScore(existing);
+    const incomingScore = getRfpMartRecencyScore(item);
+    if (incomingScore > existingScore) {
+      byKey.set(key, item);
+    }
+  }
+
+  return Array.from(byKey.values())
+    .sort((a, b) => {
+      const scoreDiff = getRfpMartRecencyScore(b) - getRfpMartRecencyScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (a.title || "").localeCompare(b.title || "");
+    })
+    .slice(0, limit);
+};
+
 // Helper function to check if the response data is the specific category summary object
 const isCategorySummaryObject = (responseData: any, categoryUrl: string): boolean => {
   return typeof responseData === 'object' &&
@@ -77,13 +365,16 @@ export const fetchRfps = async (rfpSourceCategory: RfpSourceCategory = 'web', li
   const categoryUrls = RFP_SOURCE_URLS[rfpSourceCategory];
   const errors: string[] = [];
   const emptyResultsUrls: string[] = [];
+  const aggregate: ApiRfp[] = [];
+  const fetchLimitPerUrl = Math.min(150, Math.max(limit * 4, 40));
+  const rankWindow = Math.min(300, Math.max(limit * 8, 80));
 
   console.log(`Fetching RFPs from ${rfpSourceCategory} source, limit ${limit}: ${FASTAPI_LIST_BASE_URL}`);
 
   for (const categoryUrl of categoryUrls) {
     const requestBody = {
       url: categoryUrl,
-      limit: limit,
+      limit: fetchLimitPerUrl,
       skip: 0
     };
 
@@ -116,15 +407,35 @@ export const fetchRfps = async (rfpSourceCategory: RfpSourceCategory = 'web', li
       }
 
       if (liveData.length > 0) {
-        console.log(`Successfully fetched ${liveData.length} RFPs from live API (${rfpSourceCategory}) using ${categoryUrl}.`);
-        return { data: liveData, source: 'live' };
+        aggregate.push(...liveData);
+      } else {
+        emptyResultsUrls.push(categoryUrl);
       }
-
-      emptyResultsUrls.push(categoryUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       errors.push(`${categoryUrl} -> ${message}`);
     }
+  }
+
+  if (aggregate.length > 0) {
+    const ranked = dedupeAndRankRfps(aggregate, rankWindow);
+    const filtered = ranked.filter(isLikelyTargetRfp);
+    const baseCandidates = filtered.length > 0 ? filtered : ranked;
+    const detailCandidates = baseCandidates.slice(0, DETAIL_VERIFY_BATCH_MAX);
+    const verifiedByDetail = await verifyCandidatesWithDetails(detailCandidates);
+    const selectedBase = verifiedByDetail.length > 0 ? verifiedByDetail : baseCandidates;
+    const selected = selectedBase.slice(0, limit);
+    const filteredOutCount = Math.max(0, ranked.length - selectedBase.length);
+    const warningMessage = verifiedByDetail.length === 0
+      ? "Could not verify tech-aligned categories from detail pages for this batch. Showing heuristic-filtered recency results."
+      : filteredOutCount > 0
+        ? `Filtered out ${filteredOutCount} likely out-of-scope RFPMart items after detail-page verification.`
+        : undefined;
+
+    console.log(
+      `Successfully fetched ${selected.length} RFPs from live API (${rfpSourceCategory}) across ${categoryUrls.length} URL candidate(s).`
+    );
+    return { data: selected, source: 'live', warningMessage };
   }
 
   console.warn(`Live API for ${rfpSourceCategory} returned no records across all URL candidates.`);

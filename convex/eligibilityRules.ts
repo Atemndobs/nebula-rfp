@@ -111,63 +111,6 @@ export const listRules = query({
 });
 
 /**
- * Get a single eligibility rule by ruleId
- */
-export const getRule = query({
-  args: { ruleId: v.string() },
-  handler: async (ctx, args) => {
-    const rule = await ctx.db
-      .query("eligibilityRules")
-      .withIndex("by_rule_id", (q) => q.eq("ruleId", args.ruleId))
-      .first();
-
-    if (!rule) {
-      // Return default if not configured
-      const defaultRule = DEFAULT_ELIGIBILITY_RULES.find(
-        (r) => r.ruleId === args.ruleId
-      );
-      if (defaultRule) {
-        return {
-          ...defaultRule,
-          _id: null as unknown as Id<"eligibilityRules">,
-          version: 1,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-      }
-    }
-
-    return rule;
-  },
-});
-
-/**
- * Get organization capabilities configuration
- */
-export const getOrganizationConfig = query({
-  args: {},
-  handler: async (_ctx) => {
-    // For now, return defaults - can be stored in a separate table later
-    return DEFAULT_ORGANIZATION_CAPABILITIES;
-  },
-});
-
-/**
- * Get eligibility evaluation for an opportunity
- */
-export const getEvaluation = query({
-  args: { opportunityId: v.id("opportunities") },
-  handler: async (ctx, args) => {
-    const evaluation = await ctx.db
-      .query("evaluations")
-      .withIndex("by_opportunity", (q) => q.eq("opportunityId", args.opportunityId))
-      .first();
-
-    return evaluation?.eligibility || null;
-  },
-});
-
-/**
  * Get eligibility stats across all evaluated opportunities
  * BANDWIDTH OPTIMIZED: Uses pre-computed stats from aggregation table
  */

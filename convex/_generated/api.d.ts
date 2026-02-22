@@ -25,9 +25,7 @@ import type * as ingestion_samGovBackfill from "../ingestion/samGovBackfill.js";
 import type * as ingestion_scraper from "../ingestion/scraper.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as opportunities from "../opportunities.js";
-import type * as sourceQueries from "../sourceQueries.js";
 import type * as sources from "../sources.js";
-import type * as stats from "../stats.js";
 import type * as users from "../users.js";
 
 import type {
@@ -54,9 +52,7 @@ declare const fullApi: ApiFromModules<{
   "ingestion/scraper": typeof ingestion_scraper;
   "lib/auth": typeof lib_auth;
   opportunities: typeof opportunities;
-  sourceQueries: typeof sourceQueries;
   sources: typeof sources;
-  stats: typeof stats;
   users: typeof users;
 }>;
 

@@ -172,6 +172,7 @@ export const WARNING_DAYS_BUFFER = 2;
 // Filter 6: Out-of-Scope Domain
 // ============================================
 export const OUT_OF_SCOPE_KEYWORDS = [
+  // Construction & Physical Infrastructure
   "construction",
   "hvac",
   "plumbing",
@@ -186,22 +187,73 @@ export const OUT_OF_SCOPE_KEYWORDS = [
   "masonry",
   "carpentry",
   "landscaping",
-  "janitorial",
-  "food service",
-  "medical equipment",
-  "vehicle maintenance",
-  "fleet management",
   "building renovation",
   "structural repair",
   "mechanical systems",
   "elevator maintenance",
   "fire suppression",
+  // Facility Services
+  "janitorial",
+  "cleaning services",
+  "cleaning contract",
+  "custodial services",
+  "custodial contract",
   "facility maintenance",
   "grounds keeping",
   "snow removal",
   "pest control",
   "waste management",
-  "custodial services",
+  "food service",
+  "catering",
+  // Transportation & Fleet
+  "vehicle maintenance",
+  "fleet management",
+  "transportation services",
+  "trucking",
+  "freight",
+  "shipping services",
+  "logistics services",
+  "courier services",
+  // Financial & Banking
+  "banking services",
+  "financial services",
+  "loan services",
+  "mortgage services",
+  "investment services",
+  "accounting services",
+  "auditing services",
+  "payroll services",
+  // Legal Services
+  "legal services",
+  "attorney services",
+  "law firm",
+  "paralegal services",
+  "litigation support",
+  "legal counsel",
+  // Medical & Healthcare (non-IT)
+  "medical equipment",
+  "medical supplies",
+  "pharmaceutical",
+  "nursing services",
+  "healthcare staffing",
+  "clinical services",
+  // Security & Guarding (physical)
+  "security guard",
+  "guard services",
+  "physical security",
+  "patrol services",
+  // Other Non-IT
+  "printing services",
+  "office supplies",
+  "furniture",
+  "uniform services",
+  "laundry services",
+  "moving services",
+  "relocation services",
+  "insurance services",
+  "real estate services",
+  "property management",
+  "appraisal services",
 ];
 
 // Requests that require niche specialist vendors outside Nebula's core model.
@@ -215,6 +267,13 @@ export const SPECIALIST_VENDOR_REQUIRED_KEYWORDS = [
   "niche expertise required",
   "oem certified partner",
   "exclusive implementation partner",
+  "enterprise based software",
+  "enterprise software",
+  "enterprise resource planning",
+  "erp implementation",
+  "erp system",
+  "enterprise-wide system",
+  "enterprise wide system",
 ];
 
 // ============================================
@@ -254,7 +313,6 @@ export const VALID_CATEGORY_KEYWORDS = [
   "frontend",
   "backend",
   "web application",
-  "enterprise software",
   "custom software",
 ];
 
@@ -397,4 +455,12 @@ export const DEFAULT_ORGANIZATION_CAPABILITIES = {
 // ============================================
 // Current Rules Version
 // ============================================
-export const RULES_VERSION = "1.1.0";
+// v1.3.0 - Expanded OUT_OF_SCOPE_KEYWORDS to include:
+//   - Cleaning/custodial services
+//   - Banking/financial services
+//   - Legal services
+//   - Transportation/logistics
+//   - Medical/healthcare (non-IT)
+//   - Physical security/guarding
+//   - Other non-IT categories
+export const RULES_VERSION = "1.3.0";

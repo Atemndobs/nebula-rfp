@@ -83,7 +83,7 @@ export const analyzeTextWithGemini = async (
       },
     });
     
-    let jsonStr = response.text.trim();
+    let jsonStr = (response.text ?? "").trim();
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[2]) {
@@ -128,7 +128,7 @@ export const generateTextWithGemini = async (
       },
     });
     
-    return { text: response.text.trim() };
+    return { text: (response.text ?? "").trim() };
 
   } catch (error: any) {
     const errorMessage = getGeminiErrorFeedback(error);
@@ -166,7 +166,7 @@ const generateRfpCriteriaSummary = (criteriaConfig: Record<EvaluationCriterionKe
 export const generateRfpFitAnalysisWithGemini = async (
   rfpDetail: RfpDetail,
   criteriaConfig: Record<EvaluationCriterionKey, NebulaLogixCriterion>,
-  aiSettings: AiSettings, // For system instructions or future model choices
+  _aiSettings: AiSettings, // Reserved for future model/system-instruction expansion
   existingEvaluation?: EvaluationResult // Optional existing evaluation for context
 ): Promise<RfpFitAnalysis> => {
   const ai = getAiClient();
@@ -217,7 +217,7 @@ export const generateRfpFitAnalysisWithGemini = async (
            // systemInstruction: aiSettings.systemInstructions?.[EvaluationCriterionKey.CLIENT_PROFILE] // Example general system instruction
         }
     });
-    whatMakesItFit = fitResponse.text.trim();
+    whatMakesItFit = (fitResponse.text ?? "").trim();
 
     // Now, generate recommendation
     const recommendationPrompt = `
@@ -248,7 +248,7 @@ export const generateRfpFitAnalysisWithGemini = async (
         contents: recommendationPrompt,
         config: { /* No specific config for this, simple text output */ }
     });
-    recommendation = recommendationResponse.text.trim();
+    recommendation = (recommendationResponse.text ?? "").trim();
 
   } catch (error: any) {
     console.error("Error during Gemini RFP Fit Analysis generation:", error);
